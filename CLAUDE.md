@@ -88,7 +88,7 @@ state = {
 ### Persistência / colaboração
 - **Não usa `window.storage`** (essa API só funciona dentro do ambiente de artifact do Claude, não em um arquivo `.html` baixado e aberto localmente — isso foi tentado antes e removido por não funcionar fora do chat)
 - Persistência atual é via **exportar/importar projeto em `.json`** (botões no rodapé da sidebar: `exportarProjeto()` / `importarProjetoFile()`), que serializa/restaura o `state` inteiro, incluindo imagens em base64
-- Modelo de colaboração combinado: **não será usado Git/repositório compartilhado** (decisão do usuário) — o desenvolvimento vai continuar diretamente com o Claude, usando este `CLAUDE.md` como fonte de contexto entre sessões
+- O projeto agora tem um repositório remoto no GitHub (`https://github.com/alesk3-wq/Projeto-Monitora`), branch `master`. O desenvolvimento continua diretamente com o Claude, usando este `CLAUDE.md` como fonte de contexto entre sessões — o Git remoto é usado como backup/histórico, não como fluxo de colaboração multi-pessoa (ainda é uma única pessoa desenvolvendo com o Claude)
 
 ## Limitações conhecidas (em aberto)
 - Sem suporte a touch/mobile no posicionamento da planta
