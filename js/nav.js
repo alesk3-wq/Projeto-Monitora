@@ -15,8 +15,27 @@ export function renderNav(){
     <button class="navbtn ${t.id===currentTab?'active':''}" onclick="switchTab('${t.id}')">
       <span class="num">${t.num}</span>${t.label}
     </button>`).join('');
+
+  const idx = TABS.findIndex(t=>t.id===currentTab);
+  const label = document.getElementById('navCurrentLabel');
+  if(label) label.innerHTML = `<span class="num">${TABS[idx].num}</span><span class="label-text">${TABS[idx].label}</span>`;
+  const prevBtn = document.getElementById('navPrev');
+  const nextBtn = document.getElementById('navNext');
+  if(prevBtn) prevBtn.disabled = idx<=0;
+  if(nextBtn) nextBtn.disabled = idx>=TABS.length-1;
 }
 export function switchTab(id){ currentTab = id; renderNav(); renderContent(); }
+export function goPrevTab(){
+  const idx = TABS.findIndex(t=>t.id===currentTab);
+  if(idx>0) switchTab(TABS[idx-1].id);
+}
+export function goNextTab(){
+  const idx = TABS.findIndex(t=>t.id===currentTab);
+  if(idx<TABS.length-1) switchTab(TABS[idx+1].id);
+}
+export function toggleHiddenMenu(){
+  document.getElementById('sidebar-footer').classList.toggle('open');
+}
 
 export function renderContent(){
   const c = document.getElementById('content');

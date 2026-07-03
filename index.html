@@ -16,8 +16,16 @@
     <div class="brand">
       <img src="assets/logo-bracell.png">
       <div class="txt">Segurança<br>Patrimonial</div>
+      <button id="menuToggle" class="menu-toggle" onclick="toggleHiddenMenu()" aria-label="Mais opções">
+        <span></span><span></span><span></span>
+      </button>
     </div>
     <div id="navBtns"></div>
+    <div id="mobileNav" class="mobile-nav">
+      <button id="navPrev" onclick="goPrevTab()" aria-label="Etapa anterior">‹ Voltar</button>
+      <span id="navCurrentLabel" class="mobile-nav-label"></span>
+      <button id="navNext" onclick="goNextTab()" aria-label="Próxima etapa">Próximo ›</button>
+    </div>
     <div id="sidebar-footer">
       <button onclick="exportarProjeto()">⬇ Exportar projeto (.json)</button>
       <label style="background:var(--ui-panel);color:var(--ui-muted);border:1px solid var(--ui-line);border-radius:8px;padding:9px 10px;font-size:12px;font-weight:600;cursor:pointer;text-align:left;display:block;">
