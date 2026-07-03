@@ -10,7 +10,7 @@ export function tplEstrutura(){
     ${groups.map((g,gi)=>`
       <div class="group">
         <div class="group-head">
-          <input type="text" style="margin-bottom:0;font-weight:700;max-width:360px;" placeholder="Nome do grupo (ex: Defesa Perimetral Anti-Invasão)" value="${g.titulo}" oninput="state.estrutura[${gi}].titulo=this.value">
+          <input type="text" class="group-title" placeholder="Nome do grupo (ex: Defesa Perimetral Anti-Invasão)" value="${g.titulo}" oninput="state.estrutura[${gi}].titulo=this.value">
           <button class="btn danger" onclick="removeGroup(${gi})">Remover grupo</button>
         </div>
         ${g.itens.map((it,ii)=>`
