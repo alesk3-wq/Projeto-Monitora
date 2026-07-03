@@ -8,7 +8,7 @@ import { addPremissa, removePremissa, addPremissasPadrao } from './tabs/premissa
 import { gerarPDF } from './pdf.js';
 
 Object.assign(window, {
-  state, renderContent, switchTab,
+  renderContent, switchTab,
   exportarProjeto, importarProjetoFile,
   addGroup, removeGroup, addItem, removeItem, importFromPlanta,
   handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, removePin,
@@ -16,6 +16,7 @@ Object.assign(window, {
   addPremissa, removePremissa, addPremissasPadrao,
   gerarPDF,
 });
+Object.defineProperty(window, 'state', { get: () => state, configurable: true });
 
 renderNav();
 renderContent();

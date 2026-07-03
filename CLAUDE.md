@@ -19,7 +19,7 @@ Este arquivo documenta o contexto completo do projeto para que o desenvolvimento
 6. **04 - Premissas** → lista "Título: descrição" (retenção de dados, responsabilidades de TI, disponibilidade CCOS, etc.)
 7. Encerramento ("Servir e Proteger" + logo)
 
-A logo da Bracell foi **extraída diretamente desse PDF de referência** (via `pdfimages`) e está embutida em base64 no arquivo `index.html` (constante `LOGO_B64`). Não precisa fazer upload de logo — a marca é fixa.
+A logo da Bracell foi **extraída diretamente desse PDF de referência** (via `pdfimages`) e está salva como arquivo em `assets/logo-bracell.png`. Não precisa fazer upload de logo — a marca é fixa.
 
 ## Estado atual da ferramenta
 
@@ -102,5 +102,15 @@ state = {
 - Ajustar o raio do recorte automático da planta conforme o tamanho da imagem
 
 ## Arquivos deste projeto
-- `index.html` — a ferramenta completa (único arquivo, sem dependências além dos CDNs citados acima)
+- `index.html` — casca HTML (estrutura da página, sem lógica)
+- `css/style.css` — todo o CSS da ferramenta
+- `assets/logo-bracell.png` — logo da Bracell extraída do PDF de referência
+- `js/state.js` — modelo de dados (`state`) e `setState`
+- `js/constants.js` — constantes fixas (ex: `EQUIP_TYPES`, `ICONS`, `BRAND`)
+- `js/utils.js` — funções utilitárias (ex: `todayISO`)
+- `js/nav.js` — navegação entre abas e renderização de conteúdo (`renderNav`, `renderContent`, `switchTab`)
+- `js/persistence.js` — exportar/importar projeto em `.json` (`exportarProjeto`, `importarProjetoFile`)
+- `js/pdf.js` — geração do PDF final (`gerarPDF`)
+- `js/main.js` — ponto de entrada: importa os módulos, expõe funções no `window` e inicia a renderização
+- `js/tabs/` — um módulo por aba da sidebar (Dados do Projeto, Objetivo, Estrutura, Planta, Equipamentos, Premissas, Gerar Proposta), com o template e as funções de cada aba
 - `CLAUDE.md` — este arquivo
