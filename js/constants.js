@@ -37,8 +37,8 @@ export const ICONS = {
 export const TABS = [
   {id:'projeto', label:'Dados do Projeto', num:'•'},
   {id:'objetivo', label:'Problema & Solução', num:'01'},
-  {id:'estrutura', label:'Estrutura', num:'02'},
-  {id:'planta', label:'Planta / Mapeamento', num:'03'},
+  {id:'planta', label:'Planta / Mapeamento', num:'02'},
+  {id:'estrutura', label:'Estrutura', num:'03'},
   {id:'equipamentos', label:'Fichas de Equipamentos', num:'04'},
   {id:'premissas', label:'Premissas', num:'05'},
   {id:'gerar', label:'Gerar Proposta', num:'✓'},

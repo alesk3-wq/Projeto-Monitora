@@ -44,7 +44,7 @@ function pageCapa(){
   `);
 }
 function pageSumario(){
-  const items = [['01','Problema & Solução'],['02','Estrutura'],['03','Mapeamento'],['04','Fichas de Equipamentos'],['05','Premissas']];
+  const items = [['01','Problema & Solução'],['02','Mapeamento'],['03','Estrutura'],['04','Fichas de Equipamentos'],['05','Premissas']];
   return pageShell(`
     <div style="position:absolute;right:-140px;top:-160px;width:560px;height:560px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.92;"></div>
     <div style="padding:70px 74px;">
@@ -71,11 +71,21 @@ function pageObjetivo(){
     ${footerBrand()}
   `);
 }
+function equipamentoLegend(){
+  const map = {};
+  state.planta.pins.forEach(p=>{
+    const key = p.tipoId+'|'+p.label;
+    if(!map[key]) map[key] = {tipoId:p.tipoId, label:p.label, qtd:0};
+    map[key].qtd += (parseInt(p.qtd)||1);
+  });
+  return Object.values(map);
+}
 function pageEstrutura(){
+  const legend = equipamentoLegend();
   return pageShell(`
-    ${pageHeader('02','Estrutura')}
+    ${pageHeader('03','Estrutura')}
     <div style="position:absolute;right:-140px;top:-160px;width:420px;height:420px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.85;"></div>
-    <div style="position:absolute;top:165px;left:64px;right:64px;bottom:70px;overflow:hidden;">
+    <div style="position:absolute;top:165px;left:64px;right:530px;bottom:70px;overflow:hidden;">
       ${state.estrutura.map(g=>`
         <div style="margin-bottom:20px;">
           <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:15px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
@@ -85,35 +95,28 @@ function pageEstrutura(){
             </div>`).join('')}
         </div>`).join('')}
     </div>
-    ${footerBrand()}
-  `);
-}
-function pageMapeamento(){
-  const map = {};
-  state.planta.pins.forEach(p=>{
-    const key = p.tipoId+'|'+p.label;
-    if(!map[key]) map[key] = {tipoId:p.tipoId, label:p.label, qtd:0};
-    map[key].qtd += (parseInt(p.qtd)||1);
-  });
-  const legend = Object.values(map);
-  const pinsHtml = state.planta.pins.map(p=>{
-    const t = typeById(p.tipoId);
-    const cone = t.cameraLike ? `<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:100px;height:100px;transform:translate(-50%,-50%) rotate(${p.direcao||0}deg);clip-path:polygon(50% 50%, 26% 0%, 74% 0%);background:${t.color}55;"></div>` : '';
-    return `${cone}<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}</div>`;
-  }).join('');
-  return pageShell(`
-    ${pageHeader('03','Mapeamento')}
-    <div style="position:absolute;top:165px;left:64px;width:820px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
-      ${state.planta.imagem ? `<img src="${state.planta.imagem}" style="width:100%;height:100%;object-fit:contain;position:relative;">` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
-      ${pinsHtml}
-    </div>
     <div style="position:absolute;top:165px;right:64px;width:440px;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:10px;padding:20px;">
-      <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:14px;">Legenda</div>
+      <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:14px;">Legenda — Equipamentos na Planta</div>
       ${legend.length===0 ? `<div style="font-size:13px;color:#8FA3BF;">Nenhum equipamento posicionado.</div>` : legend.map(l=>`
         <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
           <div style="width:20px;height:20px;border-radius:50%;background:${typeById(l.tipoId).color};margin-top:1px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
           <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${l.qtd}x — ${typeById(l.tipoId).label}</b>${l.label && l.label!==typeById(l.tipoId).label ? '<br>'+l.label : ''}</div>
         </div>`).join('')}
+    </div>
+    ${footerBrand()}
+  `);
+}
+function pageMapeamento(){
+  const pinsHtml = state.planta.pins.map(p=>{
+    const t = typeById(p.tipoId);
+    const cone = t.cameraLike ? `<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:50px solid ${t.color}55;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>` : '';
+    return `${cone}<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}</div>`;
+  }).join('');
+  return pageShell(`
+    ${pageHeader('02','Mapeamento')}
+    <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
+      ${state.planta.imagem ? `<div style="width:100%;height:100%;background-image:url('${state.planta.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
+      ${pinsHtml}
     </div>
     ${footerBrand()}
   `);
@@ -172,7 +175,7 @@ export async function gerarPDF(){
   const equipCrops = [];
   for(const p of state.planta.pins){ equipCrops.push(await generateCropDataURL(p)); }
   const pages = [
-    pageCapa(), pageSumario(), pageObjetivo(), pageEstrutura(), pageMapeamento(),
+    pageCapa(), pageSumario(), pageObjetivo(), pageMapeamento(), pageEstrutura(),
     ...state.planta.pins.map((p,i)=>pageEquipamento(p,i,equipCrops[i])),
     pagePremissas(), pageEncerramento()
   ];

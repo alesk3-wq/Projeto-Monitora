@@ -6,7 +6,7 @@ import { renderContent } from '../nav.js';
 export function tplPlanta(){
   const pl = state.planta;
   return `
-    <h1 class="pagetitle">03 · Planta / Mapeamento</h1>
+    <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
     <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização.</p>
     <div class="card">
       <label>Planta baixa (imagem)</label>

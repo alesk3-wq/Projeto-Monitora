@@ -35,11 +35,13 @@ A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `asset
 ### Estrutura de abas (sidebar)
 1. **Dados do Projeto** — unidade/local, equipe/núcleo responsável, endereço, responsável técnico, data
 2. **01 · Problema & Solução** — dois textareas (mapeados para "Área a ser Monitorada" e "Diretriz da Proposta" do modelo original)
-3. **02 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" agrega os pins da aba Planta em um novo grupo
-4. **03 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%), lista de pins editável
+3. **02 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%), lista de pins editável. Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
+4. **03 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" agrega os pins da aba Planta (já preenchida) em um novo grupo
 5. **04 · Fichas de Equipamentos** — uma "ficha" por equipamento posicionado, com recorte automático da planta (canvas, zoom na região do pin) + upload de foto do local de instalação + upload de foto da visualização esperada
 6. **05 · Premissas** — lista título/descrição, com botão de sugestões padrão pré-escritas
 7. **Gerar Proposta** — resumo com contadores + botão que monta o PDF completo
+
+Nota: a ordem das abas na barra lateral (Planta antes de Estrutura) segue a ordem das seções no PDF gerado (ver "Geração de PDF" abaixo) — as duas mudam juntas por decisão do usuário.
 
 ### Modelo de dados (`state`)
 ```js
@@ -78,8 +80,10 @@ state = {
 
 ### Geração de PDF
 - `gerarPDF()` monta um array de "páginas" (cada uma é uma `div` de 1414×1000px), renderiza cada uma fora da tela, rasteriza com `html2canvas` e monta o PDF com `jsPDF`
+- Ordem atual das páginas: Capa, Sumário, Objetivo (01), **Mapeamento (02)**, **Estrutura (03)** — a legenda de equipamentos posicionados na planta é renderizada na página de Estrutura, não na de Mapeamento (foi movida para lá para deixar a planta ocupar a largura toda) —, Fichas de Equipamento (uma por pin), Premissas (05), Encerramento
 - Uma página é gerada **por equipamento posicionado** na planta (recorte da planta + foto do local + foto da visualização), então o PDF cresce conforme a quantidade de equipamentos
 - Paleta de cores fixa da Bracell: `BRAND.cor` (#0A2E5C, navy), `BRAND.corSecundaria` (#0066B3, azul), `BRAND.corAcento` (#7CC242, verde) — usadas nos triângulos diagonais decorativos, cabeçalhos numerados e legendas, no mesmo estilo visual do documento de referência
+- ⚠️ **`html2canvas` 1.4.1 não suporta `clip-path` nem `object-fit`** (ambos são silenciosamente ignorados na rasterização, mesmo renderizando corretamente no DOM ao vivo). Por isso `js/pdf.js` evita as duas propriedades: cones de direção de câmera usam a técnica de borda transparente (`border-left`/`border-right` transparentes + `border-top` colorido, com `transform-origin`/`rotate`) em vez de `clip-path:polygon(...)`; a imagem da planta usa uma `<div>` com `background-image`+`background-size:contain` em vez de `<img style="object-fit:contain">`. Os triângulos decorativos de fundo (`clip-path:polygon(100% 0,100% 100%,0 100%)` usados em várias páginas) **também são afetados** por essa limitação e hoje saem como retângulos não recortados no PDF final — não corrigido ainda (não impede a leitura do documento, mas não bate com o visual do editor ao vivo); se for mexer nessas formas decorativas, aplicar a mesma técnica de borda.
 
 ### Persistência / colaboração
 - **Não usa `window.storage`** (essa API só funciona dentro do ambiente de artifact do Claude, não em um arquivo `.html` baixado e aberto localmente — isso foi tentado antes e removido por não funcionar fora do chat)

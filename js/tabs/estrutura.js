@@ -5,7 +5,7 @@ import { renderContent, switchTab } from '../nav.js';
 export function tplEstrutura(){
   const groups = state.estrutura;
   return `
-    <h1 class="pagetitle">02 · Estrutura de Equipamentos</h1>
+    <h1 class="pagetitle">03 · Estrutura de Equipamentos</h1>
     <p class="pagesub">Agrupe os equipamentos por função de segurança (ex: Defesa Perimetral, Controle de Acesso).</p>
     ${groups.map((g,gi)=>`
       <div class="group">
