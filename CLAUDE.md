@@ -23,7 +23,9 @@ A logo da Bracell foi **extraída diretamente desse PDF de referência** (via `p
 
 ## Estado atual da ferramenta
 
-Arquivo único `index.html` (HTML + CSS + JS vanilla, sem build step, sem framework). Roda direto no navegador, sem servidor.
+A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `assets/logo-bracell.png` + módulos ES em `js/` (um arquivo por responsabilidade, ver `js/tabs/` para os templates de cada aba). Sem build step, sem framework — só ES modules nativos do navegador.
+
+**Como rodar:** a partir da pasta `claudefiles/`, rode `npx serve .` (não precisa instalar nada) e abra a URL local impressa no terminal. Não é mais possível abrir `index.html` direto por duplo-clique — navegadores bloqueiam `import`/`export` de módulos ES quando a página é aberta via `file://`.
 
 ### Bibliotecas externas (via CDN, cdnjs)
 - `html2canvas` 1.4.1 — rasteriza cada "página" da proposta para gerar o PDF
