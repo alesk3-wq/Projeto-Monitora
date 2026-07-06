@@ -20,7 +20,7 @@ export function tplPlanta(){
       ${pl.imagem ? `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
         <button class="btn ghost small" onclick="zoomPlanta(-20)">➖ Zoom</button>
-        <span style="font-size:13px;font-weight:700;min-width:44px;text-align:center;">${pl.zoom||100}%</span>
+        <span id="zoomLabel" style="font-size:13px;font-weight:700;min-width:44px;text-align:center;">${pl.zoom||100}%</span>
         <button class="btn ghost small" onclick="zoomPlanta(20)">➕ Zoom</button>
         <button class="btn ghost small" onclick="resetZoom()">Resetar</button>
         <span class="hint" style="margin:0;">Dê zoom para posicionar com mais precisão; role a área para navegar.</span>
@@ -53,6 +53,48 @@ export function tplPlanta(){
 
 let dragState = null;
 let suppressNextClick = false;
+let pinch = null;
+
+function touchDist(e){
+  const dx = e.touches[0].clientX - e.touches[1].clientX;
+  const dy = e.touches[0].clientY - e.touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+function attachPinchZoom(){
+  const scroll = document.getElementById('plantaScroll');
+  const wrap = document.getElementById('plantaWrap');
+  if(!scroll || !wrap) return;
+  scroll.addEventListener('touchstart', (e)=>{
+    if(e.touches.length===2){
+      pinch = {
+        dist: touchDist(e),
+        zoom: state.planta.zoom||100,
+        midX: (e.touches[0].clientX+e.touches[1].clientX)/2,
+        midY: (e.touches[0].clientY+e.touches[1].clientY)/2,
+      };
+    }
+  }, {passive:false});
+  scroll.addEventListener('touchmove', (e)=>{
+    if(e.touches.length===2 && pinch){
+      e.preventDefault(); // impede o zoom de página do navegador
+      const z = Math.min(400, Math.max(60, pinch.zoom * (touchDist(e)/pinch.dist)));
+      // âncora: mantém o ponto da planta sob o centro do gesto
+      const r = scroll.getBoundingClientRect();
+      const fx = (scroll.scrollLeft + pinch.midX - r.left) / wrap.offsetWidth;
+      const fy = (scroll.scrollTop + pinch.midY - r.top) / wrap.offsetHeight;
+      wrap.style.width = z + '%';
+      scroll.scrollLeft = fx*wrap.offsetWidth - (pinch.midX - r.left);
+      scroll.scrollTop  = fy*wrap.offsetHeight - (pinch.midY - r.top);
+      state.planta.zoom = Math.round(z);
+      const lbl = document.getElementById('zoomLabel');
+      if(lbl) lbl.textContent = Math.round(z)+'%';
+    }
+  }, {passive:false});
+  scroll.addEventListener('touchend', (e)=>{
+    if(e.touches.length<2) pinch = null;
+  });
+}
 
 export function afterPlantaRender(){
   const img = document.getElementById('plantaImg');
@@ -82,20 +124,23 @@ export function afterPlantaRender(){
         const hx = R*Math.sin(rad), hy = -R*Math.cos(rad);
         const handle = document.createElement('div');
         handle.id = 'rothandle-'+pi;
+        handle.className = 'planta-rothandle';
         handle.title = 'Arraste para girar a direção';
-        handle.style.cssText = `position:absolute;left:calc(${p.x}% + ${hx}px);top:calc(${p.y}% + ${hy}px);width:20px;height:20px;border-radius:50%;background:#fff;border:2.5px solid ${t.color};transform:translate(-50%,-50%);cursor:grab;z-index:4;box-shadow:0 1px 3px rgba(0,0,0,.45);touch-action:none;`;
+        handle.style.cssText = `position:absolute;left:calc(${p.x}% + ${hx}px);top:calc(${p.y}% + ${hy}px);border-radius:50%;background:#fff;border:2.5px solid ${t.color};transform:translate(-50%,-50%);cursor:grab;z-index:4;box-shadow:0 1px 3px rgba(0,0,0,.45);touch-action:none;`;
         handle.onpointerdown = (e)=>startRotateDrag(e, pi);
         wrap.appendChild(handle);
       }
       const pin = document.createElement('div');
       pin.id = 'pinicon-'+pi;
+      pin.className = 'planta-pin';
       pin.title = 'Arraste para reposicionar';
-      pin.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:3;cursor:grab;touch-action:none;`;
+      pin.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:3;cursor:grab;touch-action:none;`;
       pin.innerHTML = ICONS[t.id] + `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${pi+1}</span>`;
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
     });
   }
+  attachPinchZoom();
 }
 
 export function startPinDrag(e, pi){
