@@ -105,3 +105,8 @@
     .planta-pin{width:44px;height:44px;}
     .planta-rothandle{width:28px;height:28px;}
   }
+  .cerca-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FDF3F2;border:1px solid #F0C7C0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;}
+  .cerca-vertex{width:14px;height:14px;}
+  @media (pointer: coarse){
+    .cerca-vertex{width:24px;height:24px;}
+  }

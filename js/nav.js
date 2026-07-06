@@ -2,7 +2,7 @@ import { TABS } from './constants.js';
 import { tplProjeto } from './tabs/projeto.js';
 import { tplObjetivo } from './tabs/objetivo.js';
 import { tplEstrutura } from './tabs/estrutura.js';
-import { tplPlanta, afterPlantaRender } from './tabs/planta.js';
+import { tplPlanta, afterPlantaRender, cancelarTraco } from './tabs/planta.js';
 import { tplEquipamentos, afterEquipamentosRender } from './tabs/equipamentos.js';
 import { tplPremissas } from './tabs/premissas.js';
 import { tplGerar } from './tabs/gerar.js';
@@ -24,7 +24,7 @@ export function renderNav(){
   if(prevBtn) prevBtn.disabled = idx<=0;
   if(nextBtn) nextBtn.disabled = idx>=TABS.length-1;
 }
-export function switchTab(id){ currentTab = id; renderNav(); renderContent(); }
+export function switchTab(id){ cancelarTraco(); currentTab = id; renderNav(); renderContent(); }
 export function goPrevTab(){
   const idx = TABS.findIndex(t=>t.id===currentTab);
   if(idx>0) switchTab(TABS[idx-1].id);

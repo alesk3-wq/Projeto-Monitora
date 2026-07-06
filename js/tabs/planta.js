@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
-import { typeById, fileToDataURL } from '../utils.js';
+import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
 
 export function tplPlanta(){
@@ -13,7 +13,7 @@ export function tplPlanta(){
       <input type="file" accept="image/*" onchange="handlePlantaUpload(event)" style="margin-bottom:16px;">
       <div class="toolbar-types">
         ${EQUIP_TYPES.map(t=>`
-          <button class="type-btn ${pl.selectedTipo===t.id?'active':''}" onclick="state.planta.selectedTipo='${t.id}'; renderContent();">
+          <button class="type-btn ${pl.selectedTipo===t.id?'active':''}" onclick="selectTipo('${t.id}')">
             <span class="icon-dot" style="background:${t.color}">${ICONS[t.id]}</span>${t.label}
           </button>`).join('')}
       </div>
@@ -25,6 +25,15 @@ export function tplPlanta(){
         <button class="btn ghost small" onclick="resetZoom()">Resetar</button>
         <span class="hint" style="margin:0;">Dê zoom para posicionar com mais precisão; role a área para navegar.</span>
       </div>` : ''}
+      ${pl.selectedTipo==='cerca' && pl.imagem ? `
+      <div class="cerca-bar">
+        <b>Traçado de cerca:</b>
+        <span>${tracoAtual ? tracoAtual.length : 0} ponto(s)</span>
+        <button class="btn ghost small" onclick="cercaDesfazer()">↩ Desfazer último</button>
+        <button class="btn primary small" onclick="cercaConcluir()">✔ Concluir</button>
+        <button class="btn danger small" onclick="cercaCancelar()">✕ Cancelar</button>
+        <span class="hint" style="margin:0;">Toque na planta para adicionar pontos (mín. 2). Concluir com menos de 2 descarta.</span>
+      </div>` : ''}
       <div id="plantaScroll">
         ${pl.imagem
           ? `<div id="plantaWrap" style="position:relative;width:${pl.zoom||100}%;">
@@ -33,7 +42,7 @@ export function tplPlanta(){
           : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
       </div>
       <div class="pinlist">
-        ${pl.pins.length===0 ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
+        ${(pl.pins.length===0 && pl.cercas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
             <b style="font-size:12px;color:var(--text-mid);width:18px;">${pi+1}</b>
@@ -46,6 +55,14 @@ export function tplPlanta(){
             <button class="btn danger small" onclick="removePin(${pi})">✕</button>
           </div>
         `).join('')}
+        ${pl.cercas.map((c,ci)=>`
+          <div class="pinrow">
+            <span class="icon-dot" style="background:#EB5757">${ICONS.cerca}</span>
+            <b style="font-size:12px;color:var(--text-mid);width:24px;">C${ci+1}</b>
+            <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Perímetro norte)" value="${c.label}" oninput="state.planta.cercas[${ci}].label=this.value">
+            <span style="font-size:11px;color:var(--text-mid);">${c.pontos.length} pontos</span>
+            <button class="btn danger small" onclick="removeCerca(${ci})">✕</button>
+          </div>`).join('')}
       </div>
     </div>
   `;
@@ -54,6 +71,27 @@ export function tplPlanta(){
 let dragState = null;
 let suppressNextClick = false;
 let pinch = null;
+let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem traçado
+
+export function cancelarTraco(){ tracoAtual = null; }
+export function selectTipo(id){
+  if(state.planta.selectedTipo==='cerca' && id!=='cerca') tracoAtual = null;
+  state.planta.selectedTipo = id;
+  renderContent();
+}
+export function cercaDesfazer(){
+  if(tracoAtual && tracoAtual.length) tracoAtual.pop();
+  renderContent();
+}
+export function cercaConcluir(){
+  if(!tracoAtual || tracoAtual.length<2){ tracoAtual = null; renderContent(); return; }
+  state.planta.cercas.push({label:'Cerca / Concertina', pontos:tracoAtual});
+  tracoAtual = null;
+  showToast('Traçado de cerca adicionado.');
+  renderContent();
+}
+export function cercaCancelar(){ tracoAtual = null; renderContent(); }
+export function removeCerca(ci){ state.planta.cercas.splice(ci,1); renderContent(); }
 
 function touchDist(e){
   const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -96,6 +134,41 @@ function attachPinchZoom(){
   });
 }
 
+function cercaSegmentDiv(a, b, wrapW, wrapH){
+  const dx = (b.x-a.x)/100*wrapW, dy = (b.y-a.y)/100*wrapH;
+  const lenPct = Math.hypot(dx, dy)/wrapW*100;
+  const ang = Math.atan2(dy, dx)*180/Math.PI;
+  const d = document.createElement('div');
+  d.className = 'cerca-seg';
+  d.style.cssText = `position:absolute;left:${a.x}%;top:calc(${a.y}% - 2px);width:${lenPct}%;height:4px;border-radius:2px;background:#EB5757;transform-origin:0 2px;transform:rotate(${ang}deg);pointer-events:none;z-index:2;`;
+  return d;
+}
+
+function renderCercas(wrap){
+  wrap.querySelectorAll('.cerca-seg, .cerca-vertex').forEach(el=>el.remove());
+  const wrapW = wrap.offsetWidth, wrapH = wrap.offsetHeight;
+  state.planta.cercas.forEach((c,ci)=>{
+    for(let i=0;i<c.pontos.length-1;i++) wrap.appendChild(cercaSegmentDiv(c.pontos[i], c.pontos[i+1], wrapW, wrapH));
+    c.pontos.forEach((pt,vi)=>{
+      const v = document.createElement('div');
+      v.className = 'cerca-vertex';
+      v.title = 'Arraste para ajustar o traçado';
+      v.style.cssText = `position:absolute;left:${pt.x}%;top:${pt.y}%;transform:translate(-50%,-50%);background:#fff;border:2.5px solid #EB5757;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.35);cursor:grab;z-index:4;touch-action:none;`;
+      v.onpointerdown = (e)=>startVertexDrag(e, ci, vi);
+      wrap.appendChild(v);
+    });
+  });
+  if(tracoAtual && tracoAtual.length){
+    for(let i=0;i<tracoAtual.length-1;i++) wrap.appendChild(cercaSegmentDiv(tracoAtual[i], tracoAtual[i+1], wrapW, wrapH));
+    tracoAtual.forEach(pt=>{
+      const v = document.createElement('div');
+      v.className = 'cerca-vertex';
+      v.style.cssText = `position:absolute;left:${pt.x}%;top:${pt.y}%;transform:translate(-50%,-50%);background:#EB5757;border:2.5px solid #fff;border-radius:50%;pointer-events:none;z-index:4;`;
+      wrap.appendChild(v);
+    });
+  }
+}
+
 export function afterPlantaRender(){
   const img = document.getElementById('plantaImg');
   const wrap = document.getElementById('plantaWrap');
@@ -105,6 +178,12 @@ export function afterPlantaRender(){
       const rect = img.getBoundingClientRect();
       const x = ((e.clientX-rect.left)/rect.width)*100;
       const y = ((e.clientY-rect.top)/rect.height)*100;
+      if(state.planta.selectedTipo==='cerca'){
+        tracoAtual = tracoAtual || [];
+        tracoAtual.push({x, y});
+        renderContent();
+        return;
+      }
       const t = typeById(state.planta.selectedTipo);
       state.planta.pins.push({tipoId:t.id, label:t.label, qtd:1, x, y, direcao:0, fotoLocal:null, fotoView:null});
       renderContent();
@@ -139,6 +218,7 @@ export function afterPlantaRender(){
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
     });
+    renderCercas(wrap);
   }
   attachPinchZoom();
 }
@@ -159,11 +239,26 @@ export function startRotateDrag(e, pi){
   document.addEventListener('pointermove', onPointerDrag);
   document.addEventListener('pointerup', endPointerDrag);
 }
+export function startVertexDrag(e, ci, vi){
+  e.preventDefault(); e.stopPropagation();
+  dragState = {type:'vertex', ci, vi};
+  document.addEventListener('pointermove', onPointerDrag);
+  document.addEventListener('pointerup', endPointerDrag);
+}
 export function onPointerDrag(e){
   if(!dragState) return;
   const img = document.getElementById('plantaImg');
   if(!img) return;
   const rect = img.getBoundingClientRect();
+  if(dragState.type==='vertex'){
+    const pt = state.planta.cercas[dragState.ci]?.pontos[dragState.vi];
+    if(!pt) return;
+    pt.x = Math.max(0, Math.min(100, ((e.clientX-rect.left)/rect.width)*100));
+    pt.y = Math.max(0, Math.min(100, ((e.clientY-rect.top)/rect.height)*100));
+    const wrap = document.getElementById('plantaWrap');
+    if(wrap) renderCercas(wrap);
+    return;
+  }
   const pi = dragState.index;
   const pin = state.planta.pins[pi];
   if(!pin) return;
@@ -248,6 +343,7 @@ export async function handlePlantaUpload(e){
   const f = e.target.files[0]; if(!f) return;
   state.planta.imagem = await fileToDataURL(f);
   state.planta.pins = [];
+  state.planta.cercas = [];
   state.planta.zoom = 100;
   renderContent();
 }

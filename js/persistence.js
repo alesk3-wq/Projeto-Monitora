@@ -23,8 +23,9 @@ export function importarProjetoFile(e){
     try{
       const loaded = JSON.parse(ev.target.result);
       setState(loaded);
-      if(!state.planta) state.planta = {imagem:null, selectedTipo:'bullet', pins:[], zoom:100};
+      if(!state.planta) state.planta = {imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[]};
       if(state.planta.zoom===undefined) state.planta.zoom = 100;
+      if(!state.planta.cercas) state.planta.cercas = [];
       switchTab('projeto');
       showToast('Projeto importado com sucesso.');
     }catch(err){
