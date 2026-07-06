@@ -104,9 +104,10 @@ function attachPinchZoom(){
   const wrap = document.getElementById('plantaWrap');
   if(!scroll || !wrap) return;
   scroll.addEventListener('touchstart', (e)=>{
+    if(dragState) return;
     if(e.touches.length===2){
       pinch = {
-        dist: touchDist(e),
+        dist: touchDist(e) || 1,
         zoom: state.planta.zoom||100,
         midX: (e.touches[0].clientX+e.touches[1].clientX)/2,
         midY: (e.touches[0].clientY+e.touches[1].clientY)/2,
@@ -132,6 +133,7 @@ function attachPinchZoom(){
   scroll.addEventListener('touchend', (e)=>{
     if(e.touches.length<2) pinch = null;
   });
+  scroll.addEventListener('touchcancel', ()=>{ pinch = null; });
 }
 
 function cercaSegmentDiv(a, b, wrapW, wrapH){
@@ -219,6 +221,12 @@ export function afterPlantaRender(){
       wrap.appendChild(pin);
     });
     renderCercas(wrap);
+    if(img && !img.complete){
+      img.addEventListener('load', ()=>{
+        const w = document.getElementById('plantaWrap');
+        if(w) renderCercas(w);
+      });
+    }
   }
   attachPinchZoom();
 }

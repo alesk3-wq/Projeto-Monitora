@@ -24,7 +24,7 @@ export function renderNav(){
   if(prevBtn) prevBtn.disabled = idx<=0;
   if(nextBtn) nextBtn.disabled = idx>=TABS.length-1;
 }
-export function switchTab(id){ cancelarTraco(); currentTab = id; renderNav(); renderContent(); }
+export function switchTab(id){ if(id!==currentTab) cancelarTraco(); currentTab = id; renderNav(); renderContent(); }
 export function goPrevTab(){
   const idx = TABS.findIndex(t=>t.id===currentTab);
   if(idx>0) switchTab(TABS[idx-1].id);

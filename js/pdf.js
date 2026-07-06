@@ -161,8 +161,8 @@ function pageMapeamento(dims){
     ${pageHeader('02','Mapeamento')}
     <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
       ${state.planta.imagem ? `<div style="width:100%;height:100%;background-image:url('${state.planta.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
-      ${pinsHtml}
       ${cercaHtml}
+      ${pinsHtml}
     </div>
     ${footerBrand()}
   `);
