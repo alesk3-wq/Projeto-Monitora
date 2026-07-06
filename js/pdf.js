@@ -3,6 +3,22 @@ import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById } from './utils.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
 
+function loadImageDims(src){
+  return new Promise((resolve)=>{
+    if(!src){ resolve(null); return; }
+    const img = new Image();
+    img.onload = ()=>resolve({w: img.naturalWidth, h: img.naturalHeight});
+    img.onerror = ()=>resolve(null);
+    img.src = src;
+  });
+}
+// Retângulo efetivo onde background-size:contain desenha a imagem dentro da caixa
+function containRect(imgW, imgH, boxW, boxH){
+  const scale = Math.min(boxW/imgW, boxH/imgH);
+  const w = imgW*scale, h = imgH*scale;
+  return { x:(boxW-w)/2, y:(boxH-h)/2, w, h };
+}
+
 function pageShell(inner){
   return `<div style="width:${PW}px;height:${PH}px;position:relative;overflow:hidden;background:#fff;font-family:'Inter',sans-serif;">${inner}</div>`;
 }
@@ -106,11 +122,15 @@ function pageEstrutura(){
     ${footerBrand()}
   `);
 }
-function pageMapeamento(){
+function pageMapeamento(dims){
+  const BOX_W = PW - 128, BOX_H = 770; // container: left/right:64, height:770
+  const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
   const pinsHtml = state.planta.pins.map(p=>{
     const t = typeById(p.tipoId);
-    const cone = t.cameraLike ? `<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:50px solid ${t.color}55;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>` : '';
-    return `${cone}<div style="position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}</div>`;
+    const left = rect.x + (p.x/100)*rect.w;
+    const top = rect.y + (p.y/100)*rect.h;
+    const cone = t.cameraLike ? `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:50px solid ${t.color}55;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>` : '';
+    return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}</div>`;
   }).join('');
   return pageShell(`
     ${pageHeader('02','Mapeamento')}
@@ -174,8 +194,9 @@ export async function gerarPDF(){
   root.innerHTML = '';
   const equipCrops = [];
   for(const p of state.planta.pins){ equipCrops.push(await generateCropDataURL(p)); }
+  const plantaDims = await loadImageDims(state.planta.imagem);
   const pages = [
-    pageCapa(), pageSumario(), pageObjetivo(), pageMapeamento(), pageEstrutura(),
+    pageCapa(), pageSumario(), pageObjetivo(), pageMapeamento(plantaDims), pageEstrutura(),
     ...state.planta.pins.map((p,i)=>pageEquipamento(p,i,equipCrops[i])),
     pagePremissas(), pageEncerramento()
   ];
