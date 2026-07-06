@@ -35,11 +35,11 @@ A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `asset
 ### Estrutura de abas (sidebar)
 1. **Dados do Projeto** — unidade/local, equipe/núcleo responsável, endereço, responsável técnico, data
 2. **01 · Problema & Solução** — dois textareas (mapeados para "Área a ser Monitorada" e "Diretriz da Proposta" do modelo original)
-3. **02 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%), lista de pins editável. Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
-4. **03 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" agrega os pins da aba Planta (já preenchida) em um novo grupo
-5. **04 · Fichas de Equipamentos** — uma "ficha" por equipamento posicionado, com recorte automático da planta (canvas, zoom na região do pin) + upload de foto do local de instalação + upload de foto da visualização esperada
+3. **02 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%, botões ou pinch com dois dedos), lista de pins editável. Selecionar o tipo **Cerca / Concertina** entra em *modo traçado*: cada clique adiciona um vértice de uma linha de perímetro (barra flutuante com Desfazer/Concluir/Cancelar; concluir exige ≥2 pontos), e os traçados concluídos têm vértices arrastáveis + linha própria na lista. Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
+4. **03 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" agrega os pins **e os traçados de cerca** da aba Planta em um novo grupo
+5. **04 · Fichas de Equipamentos** — uma "ficha" por equipamento posicionado (traçados de cerca não geram ficha), com recorte automático da planta (fração adaptativa à resolução: `clamp(800/largura, 15%, 50%)`, ajustável por ficha via slider "Zoom do recorte" que grava `pin.cropFrac`) + upload de foto do local de instalação + upload de foto da visualização esperada
 6. **05 · Premissas** — lista título/descrição, com botão de sugestões padrão pré-escritas
-7. **Gerar Proposta** — resumo com contadores + botão que monta o PDF completo
+7. **Gerar Proposta** — resumo com contadores + checklist de pendências (✓/✗ por item, via `validarProposta()` de `js/validacao.js`) + botão que chama `solicitarGerarPDF()`: se houver pendências abre um modal listando-as com "Gerar mesmo assim" / "Voltar e completar"; sem pendências gera direto
 
 Nota: a ordem das abas na barra lateral (Planta antes de Estrutura) segue a ordem das seções no PDF gerado (ver "Geração de PDF" abaixo) — as duas mudam juntas por decisão do usuário.
 
@@ -54,10 +54,16 @@ state = {
     selectedTipo,    // tipo de equipamento selecionado na toolbar
     zoom,            // 60–400 (%)
     pins: [
-      { tipoId, label, qtd, x, y, direcao, fotoLocal, fotoView }
+      { tipoId, label, qtd, x, y, direcao, fotoLocal, fotoView, cropFrac }
       // x,y em % relativos à imagem da planta (não em px — funciona com qualquer zoom)
       // direcao em graus (0 = norte/topo, sentido horário) — só relevante para tipos "cameraLike"
       // fotoLocal / fotoView: dataURL de fotos enviadas na aba Fichas de Equipamentos
+      // cropFrac (opcional): fração do recorte da ficha (0.10–0.60); ausente = default adaptativo
+    ],
+    cercas: [
+      { label, pontos: [ {x, y}, ... ] }
+      // traçados de cerca/concertina como polilinha; pontos em % da imagem, como os pins
+      // .json antigos sem essa chave importam com cercas:[] (default aplicado no import)
     ]
   },
   premissas: [ {titulo, desc} ],
@@ -71,19 +77,22 @@ state = {
 Ícones SVG desenhados à mão (não são de biblioteca externa) em `ICONS`, um por tipo — câmera genérica para os 4 tipos de câmera (diferenciados por cor), cancela para acesso veicular, catraca/porta para acesso pedestre, cadeado para fechadura, digital/impressão digital para biometria, cerca para cerca/concertina.
 
 ### Interações implementadas na planta
-- **Clique** na planta com um tipo selecionado na toolbar → cria um pin novo
-- **Arrastar o ícone** (mousedown+mousemove+mouseup) → reposiciona o pin (`startPinDrag` → `onPointerDrag` → `updatePinDOM`)
+- **Clique/tap** na planta com um tipo selecionado na toolbar → cria um pin novo (ou, com o tipo `cerca` selecionado, adiciona um vértice ao traçado em andamento — `tracoAtual`, variável de módulo em `js/tabs/planta.js`)
+- **Arrastar o ícone** (pointer events, funciona com mouse e touch) → reposiciona o pin (`startPinDrag` → `onPointerDrag` → `updatePinDOM`); vértices de cerca usam a mesma mecânica (`startVertexDrag`, `dragState.type==='vertex'`)
 - **Arrastar o ponto branco** ao redor do ícone (só em tipos `cameraLike`) → gira a direção/cone de visualização (`startRotateDrag`, matemática com `atan2`)
-- **Zoom** — a imagem cresce em largura (%) dentro de um container com `overflow:auto`; como as posições dos pins são em %, elas continuam corretas em qualquer zoom
+- **Zoom** — a imagem cresce em largura (%) dentro de um container com `overflow:auto`; como as posições dos pins são em %, elas continuam corretas em qualquer zoom. No touch há **pinch-zoom com dois dedos** (`attachPinchZoom` em `js/tabs/planta.js`: listeners `touchstart/move/end/cancel` com `{passive:false}`, ancorado no ponto médio do gesto, atualização ao vivo sem `renderContent()`); um dedo rola nativamente
+- **Touch**: alvos maiores em telas touch via `@media (pointer: coarse)` (classes `.planta-pin` 36→44px, `.planta-rothandle` 20→28px, `.cerca-vertex` 14→24px); `#plantaScroll` tem `user-select:none` + `-webkit-touch-callout:none` (bloqueia long-press/seleção) e `touch-action:pan-x pan-y`
+- Os segmentos de cerca no editor são `<div>`s rotacionadas com posição/comprimento em % — invariantes ao zoom (o pinch não precisa re-renderizá-los). `afterPlantaRender` re-executa `renderCercas` no `load` da imagem da planta (sem isso, a geometria sairia errada quando a aba renderiza antes do decode — ex: logo após importar um `.json`)
 - O slider de direção na lista de pins e o arraste direto na planta ficam sincronizados (`syncPinRowControls`)
-- ⚠️ Interação é baseada em eventos de mouse (`mousedown`/`mousemove`/`mouseup`) — **não tem suporte a touch/celular ainda**. Se for preciso usar em tablet/celular, isso precisa ser adaptado para eventos de touch.
+- Trocar de aba ou trocar o tipo na toolbar **cancela** um traçado de cerca em andamento (`cancelarTraco`); clicar na aba já ativa não cancela
 
 ### Geração de PDF
 - `gerarPDF()` monta um array de "páginas" (cada uma é uma `div` de 1414×1000px), renderiza cada uma fora da tela, rasteriza com `html2canvas` e monta o PDF com `jsPDF`
 - Ordem atual das páginas: Capa, Sumário, Objetivo (01), **Mapeamento (02)**, **Estrutura (03)** — a legenda de equipamentos posicionados na planta é renderizada na página de Estrutura, não na de Mapeamento (foi movida para lá para deixar a planta ocupar a largura toda) —, Fichas de Equipamento (uma por pin), Premissas (05), Encerramento
 - Uma página é gerada **por equipamento posicionado** na planta (recorte da planta + foto do local + foto da visualização), então o PDF cresce conforme a quantidade de equipamentos
 - Paleta de cores fixa da Bracell: `BRAND.cor` (#0A2E5C, navy), `BRAND.corSecundaria` (#0066B3, azul), `BRAND.corAcento` (#7CC242, verde) — usadas nos triângulos diagonais decorativos, cabeçalhos numerados e legendas, no mesmo estilo visual do documento de referência
-- ⚠️ **`html2canvas` 1.4.1 não suporta `clip-path` nem `object-fit`** (ambos são silenciosamente ignorados na rasterização, mesmo renderizando corretamente no DOM ao vivo). Por isso `js/pdf.js` evita as duas propriedades: cones de direção de câmera usam a técnica de borda transparente (`border-left`/`border-right` transparentes + `border-top` colorido, com `transform-origin`/`rotate`) em vez de `clip-path:polygon(...)`; a imagem da planta usa uma `<div>` com `background-image`+`background-size:contain` em vez de `<img style="object-fit:contain">`. Os triângulos decorativos de fundo (`clip-path:polygon(100% 0,100% 100%,0 100%)` usados em várias páginas) **também são afetados** por essa limitação e hoje saem como retângulos não recortados no PDF final — não corrigido ainda (não impede a leitura do documento, mas não bate com o visual do editor ao vivo); se for mexer nessas formas decorativas, aplicar a mesma técnica de borda.
+- Na página de Mapeamento, pins/cones/segmentos de cerca são posicionados **em px relativos ao retângulo efetivo da imagem** (helpers `loadImageDims` + `containRect` em `js/pdf.js`): como a planta é encaixada com `background-size:contain`, posicionar em % do container deslocava os pins quando a proporção da imagem diferia da do container (bug corrigido). Os segmentos de cerca são emitidos **antes** dos pins para os pins ficarem por cima, como no editor
+- ⚠️ **`html2canvas` 1.4.1 não suporta `clip-path` nem `object-fit`** (ambos são silenciosamente ignorados na rasterização, mesmo renderizando corretamente no DOM ao vivo), e o suporte a SVG inline é instável. Por isso `js/pdf.js` evita tudo isso: cones de direção de câmera usam a técnica de borda transparente (`border-left`/`border-right` transparentes + `border-top` colorido, com `transform-origin`/`rotate`); a imagem da planta usa uma `<div>` com `background-image`+`background-size:contain`; os **triângulos decorativos** usam o helper `triDecor()` — um quadrado de lado `N·√2` rotacionado 45° posicionado no canto (a página tem `overflow:hidden`), que reproduz a diagonal do antigo `clip-path` **e preserva os degradês** (o gradiente interno usa `90deg` para compensar a rotação e aparecer como `135deg`); e os segmentos de cerca são `<div>`s finas rotacionadas via `transform`
 
 ### Persistência / colaboração
 - **Não usa `window.storage`** (essa API só funciona dentro do ambiente de artifact do Claude, não em um arquivo `.html` baixado e aberto localmente — isso foi tentado antes e removido por não funcionar fora do chat)
@@ -91,19 +100,16 @@ state = {
 - O projeto agora tem um repositório remoto no GitHub (`https://github.com/alesk3-wq/Projeto-Monitora`), branch `master`. O desenvolvimento continua diretamente com o Claude, usando este `CLAUDE.md` como fonte de contexto entre sessões — o Git remoto é usado como backup/histórico, não como fluxo de colaboração multi-pessoa (ainda é uma única pessoa desenvolvendo com o Claude)
 
 ## Limitações conhecidas (em aberto)
-- Sem suporte a touch/mobile no posicionamento da planta
 - Sem múltiplos projetos simultâneos / histórico de versões dentro da própria ferramenta (cada import de `.json` substitui o estado atual)
-- Sem validação de campos obrigatórios antes de gerar o PDF
 - PDFs com muitos equipamentos ficam grandes (uma página cheia por equipamento)
-- O recorte automático da planta (ficha de equipamento) usa um raio fixo de 28% da imagem — pode não ficar ideal para plantas muito grandes ou muito pequenas
-- Sem correção de rotação da cerca/concertina (linha de perímetro) — hoje só existe como ícone pontual, não como traçado ao longo do perímetro
+- Traçado de cerca não tem metragem/escala (decisão de escopo) nem edição de vértice individual pós-conclusão (excluir e redesenhar)
+- Rótulos de pins/cercas são interpolados sem escape em atributos `value="..."` — um rótulo contendo `"` quebra a linha da lista (padrão pré-existente em todo o app)
+- Pinch/touch real validado só por emulação até agora — pendente teste de campo no celular (via Firebase Hosting)
 
 ## Próximos passos possíveis (não implementados ainda)
-- Suporte a touch para tablets
-- Desenhar cerca/concertina como linha/polígono ao longo do perímetro (não só ícone pontual)
 - Múltiplos projetos salvos dentro da mesma ferramenta
-- Validações antes de gerar PDF (ex: avisar se não tem planta, se faltam fotos nas fichas)
-- Ajustar o raio do recorte automático da planta conforme o tamanho da imagem
+- Metragem da cerca com calibração de escala da planta
+- Escape de HTML nos valores interpolados nos templates
 
 ## Arquivos deste projeto
 - `index.html` — casca HTML (estrutura da página, sem lógica)
@@ -111,7 +117,8 @@ state = {
 - `assets/logo-bracell.png` — logo da Bracell extraída do PDF de referência
 - `js/state.js` — modelo de dados (`state`) e `setState`
 - `js/constants.js` — constantes fixas (ex: `EQUIP_TYPES`, `ICONS`, `BRAND`)
-- `js/utils.js` — funções utilitárias (ex: `todayISO`)
+- `js/utils.js` — funções utilitárias (ex: `todayISO`, `defaultCropFrac`)
+- `js/validacao.js` — `validarProposta()` (lista de pendências) e `CHECKS` (checklist da aba Gerar Proposta)
 - `js/nav.js` — navegação entre abas e renderização de conteúdo (`renderNav`, `renderContent`, `switchTab`)
 - `js/persistence.js` — exportar/importar projeto em `.json` (`exportarProjeto`, `importarProjetoFile`)
 - `js/pdf.js` — geração do PDF final (`gerarPDF`)
