@@ -5,7 +5,7 @@ import { addGroup, removeGroup, addItem, removeItem, importFromPlanta } from './
 import { handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, removePin } from './tabs/planta.js';
 import { handleEquipPhoto } from './tabs/equipamentos.js';
 import { addPremissa, removePremissa, addPremissasPadrao } from './tabs/premissas.js';
-import { gerarPDF } from './pdf.js';
+import { gerarPDF, solicitarGerarPDF } from './pdf.js';
 
 Object.assign(window, {
   renderContent, switchTab, goPrevTab, goNextTab, toggleHiddenMenu,
@@ -14,7 +14,7 @@ Object.assign(window, {
   handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, removePin,
   handleEquipPhoto,
   addPremissa, removePremissa, addPremissasPadrao,
-  gerarPDF,
+  gerarPDF, solicitarGerarPDF,
 });
 Object.defineProperty(window, 'state', { get: () => state, configurable: true });
 

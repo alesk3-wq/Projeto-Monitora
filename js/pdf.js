@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById } from './utils.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
+import { validarProposta } from './validacao.js';
 
 function loadImageDims(src){
   return new Promise((resolve)=>{
@@ -224,4 +225,23 @@ export async function gerarPDF(){
   const filename = `Proposta_Bracell_${(state.projeto.unidade||'Projeto').replace(/[^a-zA-Z0-9]+/g,'_')}.pdf`;
   pdf.save(filename);
   showToast('PDF gerado com sucesso!');
+}
+
+export function solicitarGerarPDF(){
+  const pend = validarProposta();
+  if(pend.length===0){ gerarPDF(); return; }
+  const ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-title">Itens pendentes na proposta</div>
+      <ul class="modal-list">${pend.map(p=>`<li>${p.msg}</li>`).join('')}</ul>
+      <div class="modal-actions">
+        <button class="btn ghost" id="modalVoltar">Voltar e completar</button>
+        <button class="btn primary" id="modalGerar">Gerar mesmo assim</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#modalVoltar').onclick = ()=>ov.remove();
+  ov.querySelector('#modalGerar').onclick = ()=>{ ov.remove(); gerarPDF(); };
 }

@@ -89,3 +89,12 @@
     .group-head{flex-wrap:wrap;}
     .group-title{max-width:100%;flex:1 1 100%;}
   }
+  .modal-overlay{position:fixed;inset:0;background:rgba(10,20,35,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+  .modal-box{background:#fff;border-radius:12px;padding:24px 26px;max-width:480px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);}
+  .modal-title{font-weight:800;font-size:16px;color:var(--text-dark);margin-bottom:12px;}
+  .modal-list{margin:0 0 18px 18px;padding:0;font-size:13.5px;color:#7A5A1E;line-height:1.7;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+  .check{font-size:13.5px;font-weight:600;padding:7px 0;border-bottom:1px solid #EEF1F5;}
+  .check.ok{color:#2E7D32;}
+  .check.bad{color:#B7791F;}
+  .check-detail{font-weight:400;font-size:12.5px;color:#8A6D2B;margin-top:2px;}
