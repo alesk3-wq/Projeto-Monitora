@@ -3,7 +3,7 @@ import { renderNav, renderContent, switchTab, goPrevTab, goNextTab, toggleHidden
 import { exportarProjeto, importarProjetoFile } from './persistence.js';
 import { addGroup, removeGroup, addItem, removeItem, importFromPlanta } from './tabs/estrutura.js';
 import { handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, removePin } from './tabs/planta.js';
-import { handleEquipPhoto } from './tabs/equipamentos.js';
+import { handleEquipPhoto, setCropFrac } from './tabs/equipamentos.js';
 import { addPremissa, removePremissa, addPremissasPadrao } from './tabs/premissas.js';
 import { gerarPDF, solicitarGerarPDF } from './pdf.js';
 
@@ -12,7 +12,7 @@ Object.assign(window, {
   exportarProjeto, importarProjetoFile,
   addGroup, removeGroup, addItem, removeItem, importFromPlanta,
   handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, removePin,
-  handleEquipPhoto,
+  handleEquipPhoto, setCropFrac,
   addPremissa, removePremissa, addPremissasPadrao,
   gerarPDF, solicitarGerarPDF,
 });

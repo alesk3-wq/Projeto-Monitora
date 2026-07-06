@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { ICONS } from '../constants.js';
-import { typeById, fileToDataURL } from '../utils.js';
+import { typeById, fileToDataURL, defaultCropFrac } from '../utils.js';
 import { renderContent } from '../nav.js';
 
 export function tplEquipamentos(){
@@ -21,6 +21,10 @@ export function tplEquipamentos(){
           <div>
             <label>Localização na planta (automática)</label>
             <img id="cropPreview-${pi}" style="width:100%;height:150px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;">
+            <label style="margin-top:8px;">Zoom do recorte</label>
+            <input id="cropSlider-${pi}" type="range" min="10" max="60" step="1"
+              value="${Math.round((p.cropFrac||0.28)*100)}"
+              onchange="setCropFrac(${pi}, this.value)" style="width:100%;">
           </div>
           <div>
             <label>Foto do local de instalação</label>
@@ -45,7 +49,28 @@ export async function handleEquipPhoto(e, pi, field){
   renderContent();
 }
 
+export function setCropFrac(pi, val){
+  state.planta.pins[pi].cropFrac = parseInt(val)/100;
+  generateCropDataURL(state.planta.pins[pi]).then(url=>{
+    const el = document.getElementById('cropPreview-'+pi);
+    if(el && url) el.src = url;
+  });
+}
+
 export function afterEquipamentosRender(){
+  const sync = (naturalWidth)=>{
+    state.planta.pins.forEach((p,pi)=>{
+      if(!p.cropFrac){
+        const s = document.getElementById('cropSlider-'+pi);
+        if(s) s.value = Math.round(defaultCropFrac(naturalWidth)*100);
+      }
+    });
+  };
+  if(state.planta.imagem){
+    const img = new Image();
+    img.onload = ()=>sync(img.naturalWidth);
+    img.src = state.planta.imagem;
+  }
   state.planta.pins.forEach((p,pi)=>{
     generateCropDataURL(p).then(url=>{
       const el = document.getElementById('cropPreview-'+pi);
@@ -60,7 +85,7 @@ export function generateCropDataURL(pin){
     const img = new Image();
     img.onload = ()=>{
       const cw = img.naturalWidth, ch = img.naturalHeight;
-      const cropFrac = 0.28;
+      const cropFrac = pin.cropFrac || defaultCropFrac(cw);
       const cropW = cw*cropFrac, cropH = ch*cropFrac;
       let sx = (pin.x/100)*cw - cropW/2;
       let sy = (pin.y/100)*ch - cropH/2;

@@ -26,3 +26,9 @@ export function fmtDate(iso){
   const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   return `${parseInt(d)} | ${meses[parseInt(m)-1]} | ${y}`;
 }
+
+// Fração da planta recortada na ficha: adaptativa à resolução
+// (plantas grandes recortam fração menor = mais zoom; clamp 15%–50%)
+export function defaultCropFrac(naturalWidth){
+  return Math.min(0.50, Math.max(0.15, 800/naturalWidth));
+}
