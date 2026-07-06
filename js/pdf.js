@@ -18,6 +18,14 @@ function containRect(imgW, imgH, boxW, boxH){
   const w = imgW*scale, h = imgH*scale;
   return { x:(boxW-w)/2, y:(boxH-h)/2, w, h };
 }
+// Triângulo decorativo compatível com html2canvas (clip-path é ignorado na rasterização):
+// quadrado rotacionado 45° cuja aresta superior coincide com a hipotenusa do antigo
+// clip-path:polygon(100% 0,100% 100%,0 100%). Passar os mesmos size/right/top|bottom do div antigo.
+function triDecor({size, right, top=null, bottom=null, background, opacity=1}){
+  const L = size*Math.SQRT2;
+  const vert = top!==null ? `top:${top + size - L/2}px;` : `bottom:${bottom - L/2}px;`;
+  return `<div style="position:absolute;right:${right - L/2}px;${vert}width:${L}px;height:${L}px;transform:rotate(45deg);background:${background};opacity:${opacity};"></div>`;
+}
 
 function pageShell(inner){
   return `<div style="width:${PW}px;height:${PH}px;position:relative;overflow:hidden;background:#fff;font-family:'Inter',sans-serif;">${inner}</div>`;
@@ -42,8 +50,8 @@ function footerBrand(){
 function pageCapa(){
   return pageShell(`
     <div style="width:100%;height:100%;background:#fff;position:relative;">
-      <div style="position:absolute;right:-110px;bottom:-160px;width:760px;height:760px;background:${BRAND.cor};clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.97;"></div>
-      <div style="position:absolute;right:-30px;bottom:-90px;width:480px;height:480px;background:${BRAND.corSecundaria};clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.9;"></div>
+      ${triDecor({size:760, right:-110, bottom:-160, background:BRAND.cor, opacity:.97})}
+      ${triDecor({size:480, right:-30, bottom:-90, background:BRAND.corSecundaria, opacity:.9})}
       <div style="position:absolute;left:74px;top:56px;font-size:12px;letter-spacing:1.5px;font-weight:800;color:${BRAND.cor};text-transform:uppercase;">PROJETO SEG. ELETRÔNICA</div>
       <div style="position:absolute;left:74px;top:78px;font-size:11px;letter-spacing:1px;font-weight:700;color:#8FA3BF;text-transform:uppercase;">DEPTO. ${BRAND.departamento.toUpperCase()}</div>
       <div style="position:absolute;left:74px;top:300px;max-width:640px;">
@@ -62,7 +70,7 @@ function pageCapa(){
 function pageSumario(){
   const items = [['01','Problema & Solução'],['02','Mapeamento'],['03','Estrutura'],['04','Fichas de Equipamentos'],['05','Premissas']];
   return pageShell(`
-    <div style="position:absolute;right:-140px;top:-160px;width:560px;height:560px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.92;"></div>
+    ${triDecor({size:560, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.92})}
     <div style="padding:70px 74px;">
       <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:40px;color:${BRAND.cor};margin-bottom:34px;">Sumário</div>
       ${items.map(([n,l])=>`
@@ -77,7 +85,7 @@ function pageSumario(){
 function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
-    <div style="position:absolute;right:-140px;top:-160px;width:420px;height:420px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.85;"></div>
+    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:170px;left:64px;right:64px;">
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Área a ser Monitorada</div>
       <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;margin-bottom:34px;">${state.objetivo.problema || '—'}</div>
@@ -100,7 +108,7 @@ function pageEstrutura(){
   const legend = equipamentoLegend();
   return pageShell(`
     ${pageHeader('03','Estrutura')}
-    <div style="position:absolute;right:-140px;top:-160px;width:420px;height:420px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.85;"></div>
+    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:165px;left:64px;right:530px;bottom:70px;overflow:hidden;">
       ${state.estrutura.map(g=>`
         <div style="margin-bottom:20px;">
@@ -147,7 +155,7 @@ function pageEquipamento(pin, index, cropUrl){
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:13px;">${txt}</div>`;
   return pageShell(`
     ${pageHeader(String(index+1), t.label + (pin.label?' — '+pin.label:''))}
-    <div style="position:absolute;right:-140px;top:-160px;width:420px;height:420px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.85;"></div>
+    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:170px;left:64px;right:64px;bottom:70px;display:flex;gap:24px;">
       <div style="flex:1;">
         <div style="font-weight:800;color:${BRAND.cor};font-size:13px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Localização na Planta</div>
@@ -168,7 +176,7 @@ function pageEquipamento(pin, index, cropUrl){
 function pagePremissas(){
   return pageShell(`
     ${pageHeader('05','Premissas do Projeto')}
-    <div style="position:absolute;right:-140px;top:-160px;width:420px;height:420px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.85;"></div>
+    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:165px;left:64px;right:64px;bottom:70px;overflow:hidden;">
       ${state.premissas.map(p=>`
         <div style="margin-bottom:16px;font-size:14px;line-height:1.55;color:#33415A;">
@@ -181,7 +189,7 @@ function pagePremissas(){
 function pageEncerramento(){
   return pageShell(`
     <div style="width:100%;height:100%;position:relative;background:#fff;">
-      <div style="position:absolute;right:-100px;top:-140px;width:520px;height:520px;background:linear-gradient(135deg, ${BRAND.corAcento}, ${BRAND.corSecundaria});clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.92;"></div>
+      ${triDecor({size:520, right:-100, top:-140, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.92})}
       <div style="position:absolute;left:74px;top:420px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:52px;color:${BRAND.cor};">${(BRAND.slogan||'').toUpperCase()}</div>
       <div style="position:absolute;left:74px;bottom:70px;"><img src="${BRAND.logo}" style="height:30px;object-fit:contain;"></div>
     </div>
