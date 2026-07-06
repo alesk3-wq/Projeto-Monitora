@@ -103,7 +103,11 @@ function equipamentoLegend(){
     if(!map[key]) map[key] = {tipoId:p.tipoId, label:p.label, qtd:0};
     map[key].qtd += (parseInt(p.qtd)||1);
   });
-  return Object.values(map);
+  const legend = Object.values(map);
+  (state.planta.cercas||[]).forEach(c=>{
+    legend.push({tipoId:'cerca', label:c.label, qtd:1});
+  });
+  return legend;
 }
 function pageEstrutura(){
   const legend = equipamentoLegend();
@@ -141,11 +145,24 @@ function pageMapeamento(dims){
     const cone = t.cameraLike ? `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:50px solid ${t.color}55;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>` : '';
     return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}</div>`;
   }).join('');
+  const cercaHtml = (state.planta.cercas||[]).map(c=>{
+    const segs = [];
+    for(let i=0;i<c.pontos.length-1;i++){
+      const a = c.pontos[i], b = c.pontos[i+1];
+      const x1 = rect.x + (a.x/100)*rect.w, y1 = rect.y + (a.y/100)*rect.h;
+      const x2 = rect.x + (b.x/100)*rect.w, y2 = rect.y + (b.y/100)*rect.h;
+      const len = Math.hypot(x2-x1, y2-y1);
+      const ang = Math.atan2(y2-y1, x2-x1)*180/Math.PI;
+      segs.push(`<div style="position:absolute;left:${x1}px;top:${y1-2}px;width:${len}px;height:4px;border-radius:2px;background:#EB5757;transform-origin:0 2px;transform:rotate(${ang}deg);"></div>`);
+    }
+    return segs.join('');
+  }).join('');
   return pageShell(`
     ${pageHeader('02','Mapeamento')}
     <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
       ${state.planta.imagem ? `<div style="width:100%;height:100%;background-image:url('${state.planta.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
       ${pinsHtml}
+      ${cercaHtml}
     </div>
     ${footerBrand()}
   `);

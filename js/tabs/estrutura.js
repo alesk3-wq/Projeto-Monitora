@@ -44,6 +44,9 @@ export function importFromPlanta(){
     map[key].qtd += (parseInt(p.qtd)||1);
   });
   const itens = Object.values(map);
+  (state.planta.cercas||[]).forEach(c=>{
+    itens.push({qtd:1, nome:c.label||'Cerca / Concertina', desc:''});
+  });
   if(itens.length===0){ showToast('Nenhum ponto na planta para importar.'); return; }
   state.estrutura.push({titulo:'Equipamentos Mapeados', itens});
   showToast('Grupo criado a partir da planta.');
