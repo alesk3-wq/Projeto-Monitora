@@ -1,6 +1,6 @@
 import { state } from './state.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
-import { showToast, fmtDate, typeById } from './utils.js';
+import { showToast, fmtDate, typeById, areaCatById } from './utils.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
 import { validarProposta } from './validacao.js';
 
@@ -131,6 +131,15 @@ function pageEstrutura(){
           <div style="width:20px;height:20px;border-radius:50%;background:${typeById(l.tipoId).color};margin-top:1px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
           <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${l.qtd}x — ${typeById(l.tipoId).label}</b>${l.label && l.label!==typeById(l.tipoId).label ? '<br>'+l.label : ''}</div>
         </div>`).join('')}
+      ${(state.planta.areas||[]).length ? `
+        <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin:18px 0 12px;">Áreas Demarcadas</div>
+        ${state.planta.areas.map(a=>{
+          const cat = areaCatById(a.catId);
+          return `<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+            <div style="width:16px;height:16px;border-radius:4px;background:${cat.color}66;border:2px solid ${cat.color};margin-top:1px;flex-shrink:0;"></div>
+            <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${cat.label}</b>${a.descricao ? ' — '+a.descricao : ''}</div>
+          </div>`;
+        }).join('')}` : ''}
     </div>
     ${footerBrand()}
   `);
@@ -157,10 +166,17 @@ function pageMapeamento(dims){
     }
     return segs.join('');
   }).join('');
+  const areasHtml = (state.planta.areas||[]).map(a=>{
+    const cat = areaCatById(a.catId);
+    const x = rect.x + (a.x/100)*rect.w, y = rect.y + (a.y/100)*rect.h;
+    const w = (a.w/100)*rect.w, h = (a.h/100)*rect.h;
+    return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${cat.color}38;border:2px solid ${cat.color};border-radius:4px;box-sizing:border-box;"><span style="position:absolute;top:2px;left:2px;background:${cat.color};color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:3px;">${cat.label}</span></div>`;
+  }).join('');
   return pageShell(`
     ${pageHeader('02','Mapeamento')}
     <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
       ${state.planta.imagem ? `<div style="width:100%;height:100%;background-image:url('${state.planta.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
+      ${areasHtml}
       ${cercaHtml}
       ${pinsHtml}
     </div>
