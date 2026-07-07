@@ -26,6 +26,8 @@ export function importarProjetoFile(e){
       if(!state.planta) state.planta = {imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[]};
       if(state.planta.zoom===undefined) state.planta.zoom = 100;
       if(!state.planta.cercas) state.planta.cercas = [];
+      if(!state.planta.areas) state.planta.areas = [];
+      if(!state.planta.selectedAreaCat) state.planta.selectedAreaCat = 'area1';
       switchTab('projeto');
       showToast('Projeto importado com sucesso.');
     }catch(err){

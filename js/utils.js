@@ -1,4 +1,4 @@
-import { EQUIP_TYPES } from './constants.js';
+import { EQUIP_TYPES, AREA_CATS } from './constants.js';
 
 export function todayISO(){ return new Date().toISOString().slice(0,10); }
 
@@ -19,6 +19,8 @@ export function fileToDataURL(file){
 }
 
 export function typeById(id){ return EQUIP_TYPES.find(t=>t.id===id) || EQUIP_TYPES[EQUIP_TYPES.length-1]; }
+
+export function areaCatById(id){ return AREA_CATS.find(c=>c.id===id) || AREA_CATS[AREA_CATS.length-1]; }
 
 export function fmtDate(iso){
   if(!iso) return '';

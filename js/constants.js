@@ -21,6 +21,16 @@ export const EQUIP_TYPES = [
   {id:'outro', label:'Outro', color:'#828282', cameraLike:false},
 ];
 
+export const AREA_CATS = [
+  {id:'area1', label:'Área 1', desc:'Área da Oficina', color:'#2D9CDB'},
+  {id:'area2', label:'Área 2', desc:'Área de livre circulação', color:'#27AE60'},
+  {id:'area3', label:'Área 3', desc:'Materiais de altíssimo valor, mas de difícil transporte e comercialização', color:'#9B51E0'},
+  {id:'area4', label:'Área 4', desc:'Materiais de fácil transporte, alto giro, mas baixo valor', color:'#F2C94C'},
+  {id:'area5', label:'Área 5', desc:'Materiais de alto valor, alto giro, mas de difícil transporte', color:'#F2994A'},
+  {id:'area6', label:'Área 6', desc:'Área crítica (prateleiras/porta-pallets com peças de alto giro, alto valor, fácil transporte e fácil comércio)', color:'#C0392B'},
+  {id:'outro', label:'Outro', desc:'', color:'#828282'},
+];
+
 export const ICONS = {
   bullet: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="11" height="7" rx="1"/><path d="M14 11l6-3v8l-6-3z"/><line x1="6" y1="9" x2="6" y2="6"/></svg>',
   dome: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0"/><line x1="3" y1="14" x2="21" y2="14"/><circle cx="12" cy="11" r="2.4"/></svg>',
