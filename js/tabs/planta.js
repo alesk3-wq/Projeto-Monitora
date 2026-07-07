@@ -2,7 +2,7 @@ import { state } from '../state.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
 import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
-import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo } from './areas.js';
+import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 
 export function tplPlanta(){
   const pl = state.planta;
@@ -110,6 +110,7 @@ function attachPinchZoom(){
   const wrap = document.getElementById('plantaWrap');
   if(!scroll || !wrap) return;
   scroll.addEventListener('touchstart', (e)=>{
+    if(e.touches.length===2) cancelAreaDraw();
     if(dragState || areaDragAtivo()) return;
     if(e.touches.length===2){
       pinch = {

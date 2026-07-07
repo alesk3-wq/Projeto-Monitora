@@ -90,6 +90,7 @@ export function startAreaDraw(e){
   wrap.appendChild(d);
   document.addEventListener('pointermove', onAreaPointerMove);
   document.addEventListener('pointerup', endAreaPointer);
+  document.addEventListener('pointercancel', onAreaPointerCancel);
 }
 
 function startAreaMove(e, ai){
@@ -99,6 +100,7 @@ function startAreaMove(e, ai){
   areaDrag = {type:'move', index:ai, start:p, orig:{x:a.x, y:a.y}};
   document.addEventListener('pointermove', onAreaPointerMove);
   document.addEventListener('pointerup', endAreaPointer);
+  document.addEventListener('pointercancel', onAreaPointerCancel);
 }
 
 function startAreaResize(e, ai){
@@ -106,9 +108,11 @@ function startAreaResize(e, ai){
   areaDrag = {type:'resize', index:ai};
   document.addEventListener('pointermove', onAreaPointerMove);
   document.addEventListener('pointerup', endAreaPointer);
+  document.addEventListener('pointercancel', onAreaPointerCancel);
 }
 
 function onAreaPointerMove(e){
+  if(e.isPrimary===false) return;
   if(!areaDrag) return;
   const img = document.getElementById('plantaImg');
   if(!img) return;
@@ -142,9 +146,11 @@ function updateAreaDOM(ai){
   if(d){ d.style.left=a.x+'%'; d.style.top=a.y+'%'; d.style.width=a.w+'%'; d.style.height=a.h+'%'; }
 }
 
-function endAreaPointer(){
+function endAreaPointer(e){
+  if(e && e.isPrimary===false) return;
   document.removeEventListener('pointermove', onAreaPointerMove);
   document.removeEventListener('pointerup', endAreaPointer);
+  document.removeEventListener('pointercancel', onAreaPointerCancel);
   const drag = areaDrag;
   areaDrag = null;
   if(drag && drag.type==='draw'){
@@ -157,4 +163,20 @@ function endAreaPointer(){
       renderContent();
     }
   }
+}
+
+function onAreaPointerCancel(){
+  document.removeEventListener('pointermove', onAreaPointerMove);
+  document.removeEventListener('pointerup', endAreaPointer);
+  document.removeEventListener('pointercancel', onAreaPointerCancel);
+  if(areaDrag && areaDrag.type==='draw'){
+    const d = document.getElementById('area-preview');
+    if(d) d.remove();
+  }
+  areaDrag = null;
+}
+
+// Cancela um DESENHO em andamento (não mexe em move/resize) — chamado pelo pinch de 2 dedos
+export function cancelAreaDraw(){
+  if(areaDrag && areaDrag.type==='draw') onAreaPointerCancel();
 }
