@@ -35,7 +35,7 @@ A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `asset
 ### Estrutura de abas (sidebar)
 1. **Dados do Projeto** — unidade/local, equipe/núcleo responsável, endereço, responsável técnico, data
 2. **01 · Problema & Solução** — dois textareas (mapeados para "Área a ser Monitorada" e "Diretriz da Proposta" do modelo original)
-3. **02 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%, botões ou pinch com dois dedos), lista de pins editável. Selecionar o tipo **Cerca / Concertina** entra em *modo traçado*: cada clique adiciona um vértice de uma linha de perímetro (barra flutuante com Desfazer/Concluir/Cancelar; concluir exige ≥2 pontos), e os traçados concluídos têm vértices arrastáveis + linha própria na lista. Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
+3. **02 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%, botões ou pinch com dois dedos), lista de pins editável. Selecionar o tipo **Cerca / Concertina** entra em *modo traçado*: cada clique adiciona um vértice de uma linha de perímetro (barra flutuante com Desfazer/Concluir/Cancelar; concluir exige ≥2 pontos), e os traçados concluídos têm vértices arrastáveis + linha própria na lista. O botão **▧ Demarcar Área** entra em *modo área*: clica-e-arrasta desenha um retângulo semi-transparente sobre a planta, classificado por uma paleta de 7 categorias (`AREA_CATS` em `js/constants.js`: Área 1–6 com descrição padrão e cor fixa, gradiente de criticidade + "Outro" cinza com descrição livre); em modo área os retângulos são interativos (arrastar o corpo move, alça no canto inferior-direito redimensiona) e fora dele têm `pointer-events:none` (pins funcionam por cima); cada área tem linha na lista (select de categoria re-preenche a descrição padrão + input de descrição + excluir). A lógica vive em `js/tabs/areas.js` (módulo próprio; `planta.js` delega). Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
 4. **03 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" agrega os pins **e os traçados de cerca** da aba Planta em um novo grupo
 5. **04 · Fichas de Equipamentos** — uma "ficha" por equipamento posicionado (traçados de cerca não geram ficha), com recorte automático da planta (fração adaptativa à resolução: `clamp(800/largura, 15%, 50%)`, ajustável por ficha via slider "Zoom do recorte" que grava `pin.cropFrac`) + upload de foto do local de instalação + upload de foto da visualização esperada
 6. **05 · Premissas** — lista título/descrição, com botão de sugestões padrão pré-escritas
@@ -64,7 +64,13 @@ state = {
       { label, pontos: [ {x, y}, ... ] }
       // traçados de cerca/concertina como polilinha; pontos em % da imagem, como os pins
       // .json antigos sem essa chave importam com cercas:[] (default aplicado no import)
-    ]
+    ],
+    areas: [
+      { catId, descricao, x, y, w, h }
+      // retângulos demarcadores; x,y,w,h em % da imagem; catId de AREA_CATS ('area1'..'area6','outro')
+      // descricao pré-preenchida pela categoria (editável); .json antigos importam com areas:[]
+    ],
+    selectedAreaCat, // categoria armada na paleta do modo área ('area1' default)
   },
   premissas: [ {titulo, desc} ],
 }
@@ -91,7 +97,7 @@ state = {
 - Ordem atual das páginas: Capa, Sumário, Objetivo (01), **Mapeamento (02)**, **Estrutura (03)** — a legenda de equipamentos posicionados na planta é renderizada na página de Estrutura, não na de Mapeamento (foi movida para lá para deixar a planta ocupar a largura toda) —, Fichas de Equipamento (uma por pin), Premissas (05), Encerramento
 - Uma página é gerada **por equipamento posicionado** na planta (recorte da planta + foto do local + foto da visualização), então o PDF cresce conforme a quantidade de equipamentos
 - Paleta de cores fixa da Bracell: `BRAND.cor` (#0A2E5C, navy), `BRAND.corSecundaria` (#0066B3, azul), `BRAND.corAcento` (#7CC242, verde) — usadas nos triângulos diagonais decorativos, cabeçalhos numerados e legendas, no mesmo estilo visual do documento de referência
-- Na página de Mapeamento, pins/cones/segmentos de cerca são posicionados **em px relativos ao retângulo efetivo da imagem** (helpers `loadImageDims` + `containRect` em `js/pdf.js`): como a planta é encaixada com `background-size:contain`, posicionar em % do container deslocava os pins quando a proporção da imagem diferia da do container (bug corrigido). Os segmentos de cerca são emitidos **antes** dos pins para os pins ficarem por cima, como no editor
+- Na página de Mapeamento, pins/cones/segmentos de cerca são posicionados **em px relativos ao retângulo efetivo da imagem** (helpers `loadImageDims` + `containRect` em `js/pdf.js`): como a planta é encaixada com `background-size:contain`, posicionar em % do container deslocava os pins quando a proporção da imagem diferia da do container (bug corrigido). Ordem de emissão: **áreas demarcadas → segmentos de cerca → pins** (áreas por baixo de tudo, pins por cima, como no editor). Os retângulos de área usam fill translúcido em hex8 (`cor+'38'`) + borda sólida + etiqueta com o label da categoria; a página de Estrutura ganha a seção "Áreas Demarcadas" na caixa de legenda (quadradinho da cor + label — descrição), só quando houver áreas
 - ⚠️ **`html2canvas` 1.4.1 não suporta `clip-path` nem `object-fit`** (ambos são silenciosamente ignorados na rasterização, mesmo renderizando corretamente no DOM ao vivo), e o suporte a SVG inline é instável. Por isso `js/pdf.js` evita tudo isso: cones de direção de câmera usam a técnica de borda transparente (`border-left`/`border-right` transparentes + `border-top` colorido, com `transform-origin`/`rotate`); a imagem da planta usa uma `<div>` com `background-image`+`background-size:contain`; os **triângulos decorativos** usam o helper `triDecor()` — um quadrado de lado `N·√2` rotacionado 45° posicionado no canto (a página tem `overflow:hidden`), que reproduz a diagonal do antigo `clip-path` **e preserva os degradês** (o gradiente interno usa `90deg` para compensar a rotação e aparecer como `135deg`); e os segmentos de cerca são `<div>`s finas rotacionadas via `transform`
 
 ### Persistência / colaboração
@@ -103,7 +109,9 @@ state = {
 - Sem múltiplos projetos simultâneos / histórico de versões dentro da própria ferramenta (cada import de `.json` substitui o estado atual)
 - PDFs com muitos equipamentos ficam grandes (uma página cheia por equipamento)
 - Traçado de cerca não tem metragem/escala (decisão de escopo) nem edição de vértice individual pós-conclusão (excluir e redesenhar)
-- Rótulos de pins/cercas são interpolados sem escape em atributos `value="..."` — um rótulo contendo `"` quebra a linha da lista (padrão pré-existente em todo o app)
+- Rótulos de pins/cercas e descrições de áreas são interpolados sem escape em atributos `value="..."` — um valor contendo `"` quebra a linha da lista (padrão pré-existente em todo o app)
+- Em modo área não dá pra começar a desenhar um retângulo novo de dentro de um existente (o arrasto do corpo ganha) — desenhe começando fora, ou mova o existente antes
+- Caixa de legenda da página Estrutura não tem limite de altura — legenda de equipamentos + muitas áreas pode estourar a página (cortado pelo `overflow:hidden`)
 - Pinch/touch real validado só por emulação até agora — pendente teste de campo no celular (via Firebase Hosting)
 
 ## Próximos passos possíveis (não implementados ainda)
@@ -116,12 +124,13 @@ state = {
 - `css/style.css` — todo o CSS da ferramenta
 - `assets/logo-bracell.png` — logo da Bracell extraída do PDF de referência
 - `js/state.js` — modelo de dados (`state`) e `setState`
-- `js/constants.js` — constantes fixas (ex: `EQUIP_TYPES`, `ICONS`, `BRAND`)
-- `js/utils.js` — funções utilitárias (ex: `todayISO`, `defaultCropFrac`)
+- `js/constants.js` — constantes fixas (ex: `EQUIP_TYPES`, `AREA_CATS`, `ICONS`, `BRAND`)
+- `js/utils.js` — funções utilitárias (ex: `todayISO`, `defaultCropFrac`, `typeById`, `areaCatById`)
 - `js/validacao.js` — `validarProposta()` (lista de pendências) e `CHECKS` (checklist da aba Gerar Proposta)
 - `js/nav.js` — navegação entre abas e renderização de conteúdo (`renderNav`, `renderContent`, `switchTab`)
 - `js/persistence.js` — exportar/importar projeto em `.json` (`exportarProjeto`, `importarProjetoFile`)
 - `js/pdf.js` — geração do PDF final (`gerarPDF`)
 - `js/main.js` — ponto de entrada: importa os módulos, expõe funções no `window` e inicia a renderização
 - `js/tabs/` — um módulo por aba da sidebar (Dados do Projeto, Objetivo, Estrutura, Planta, Equipamentos, Premissas, Gerar Proposta), com o template e as funções de cada aba
+- `js/tabs/areas.js` — demarcadores de área da aba Planta (paleta, desenho clica-e-arrasta, mover/redimensionar, linhas da lista); `planta.js` delega para cá
 - `CLAUDE.md` — este arquivo
