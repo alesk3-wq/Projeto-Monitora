@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
 import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
+import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo } from './areas.js';
 
 export function tplPlanta(){
   const pl = state.planta;
@@ -16,6 +17,9 @@ export function tplPlanta(){
           <button class="type-btn ${pl.selectedTipo===t.id?'active':''}" onclick="selectTipo('${t.id}')">
             <span class="icon-dot" style="background:${t.color}">${ICONS[t.id]}</span>${t.label}
           </button>`).join('')}
+        <button class="type-btn ${pl.selectedTipo==='area'?'active':''}" onclick="selectTipo('area')">
+          <span class="icon-dot" style="background:#5A6B82">▧</span>Demarcar Área
+        </button>
       </div>
       ${pl.imagem ? `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
@@ -34,7 +38,8 @@ export function tplPlanta(){
         <button class="btn danger small" onclick="cercaCancelar()">✕ Cancelar</button>
         <span class="hint" style="margin:0;">Toque na planta para adicionar pontos (mín. 2). Concluir com menos de 2 descarta.</span>
       </div>` : ''}
-      <div id="plantaScroll">
+      ${pl.selectedTipo==='area' && pl.imagem ? tplAreaPalette() : ''}
+      <div id="plantaScroll" class="${pl.selectedTipo==='area' ? 'modo-area' : ''}">
         ${pl.imagem
           ? `<div id="plantaWrap" style="position:relative;width:${pl.zoom||100}%;">
                <img id="plantaImg" src="${pl.imagem}">
@@ -42,7 +47,7 @@ export function tplPlanta(){
           : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
       </div>
       <div class="pinlist">
-        ${(pl.pins.length===0 && pl.cercas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
+        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
             <b style="font-size:12px;color:var(--text-mid);width:18px;">${pi+1}</b>
@@ -63,6 +68,7 @@ export function tplPlanta(){
             <span style="font-size:11px;color:var(--text-mid);">${c.pontos.length} pontos</span>
             <button class="btn danger small" onclick="removeCerca(${ci})">✕</button>
           </div>`).join('')}
+        ${tplAreaRows()}
       </div>
     </div>
   `;
@@ -104,7 +110,7 @@ function attachPinchZoom(){
   const wrap = document.getElementById('plantaWrap');
   if(!scroll || !wrap) return;
   scroll.addEventListener('touchstart', (e)=>{
-    if(dragState) return;
+    if(dragState || areaDragAtivo()) return;
     if(e.touches.length===2){
       pinch = {
         dist: touchDist(e) || 1,
@@ -177,6 +183,7 @@ export function afterPlantaRender(){
   if(img){
     img.onclick = (e)=>{
       if(suppressNextClick){ suppressNextClick = false; return; }
+      if(state.planta.selectedTipo==='area') return;
       const rect = img.getBoundingClientRect();
       const x = ((e.clientX-rect.left)/rect.width)*100;
       const y = ((e.clientY-rect.top)/rect.height)*100;
@@ -189,6 +196,9 @@ export function afterPlantaRender(){
       const t = typeById(state.planta.selectedTipo);
       state.planta.pins.push({tipoId:t.id, label:t.label, qtd:1, x, y, direcao:0, fotoLocal:null, fotoView:null});
       renderContent();
+    };
+    img.onpointerdown = (e)=>{
+      if(state.planta.selectedTipo==='area' && e.isPrimary) startAreaDraw(e);
     };
   }
   if(wrap){
@@ -221,6 +231,7 @@ export function afterPlantaRender(){
       wrap.appendChild(pin);
     });
     renderCercas(wrap);
+    renderAreas(wrap);
     if(img && !img.complete){
       img.addEventListener('load', ()=>{
         const w = document.getElementById('plantaWrap');
@@ -352,6 +363,7 @@ export async function handlePlantaUpload(e){
   state.planta.imagem = await fileToDataURL(f);
   state.planta.pins = [];
   state.planta.cercas = [];
+  state.planta.areas = [];
   state.planta.zoom = 100;
   renderContent();
 }

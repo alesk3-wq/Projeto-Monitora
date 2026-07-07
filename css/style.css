@@ -110,3 +110,12 @@
   @media (pointer: coarse){
     .cerca-vertex{width:24px;height:24px;}
   }
+  .area-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#F3F6FB;border:1px solid #D6DDE7;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;}
+  .area-chip{border:2px solid var(--chip-cor);background:#fff;color:var(--text-dark);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+  .area-chip.active{background:var(--chip-cor);color:#fff;}
+  .area-chip-label{position:absolute;top:2px;left:2px;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:3px;pointer-events:none;}
+  .area-handle{width:18px;height:18px;}
+  #plantaScroll.modo-area{touch-action:none;}
+  @media (pointer: coarse){
+    .area-handle{width:28px;height:28px;}
+  }
