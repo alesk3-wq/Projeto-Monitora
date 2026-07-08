@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById } from './utils.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
+import { exportarProjeto } from './persistence.js';
 import { validarProposta } from './validacao.js';
 
 function loadImageDims(src){
@@ -274,7 +275,13 @@ export async function gerarPDF(){
   }
   const filename = `Proposta_Bracell_${(state.projeto.unidade||'Projeto').replace(/[^a-zA-Z0-9]+/g,'_')}.pdf`;
   pdf.save(filename);
-  showToast('PDF gerado com sucesso!');
+  const chk = document.getElementById('baixarJson');
+  if(chk && chk.checked){
+    exportarProjeto();
+    showToast('PDF e projeto editável (.json) baixados!');
+  } else {
+    showToast('PDF gerado com sucesso!');
+  }
 }
 
 export function solicitarGerarPDF(){

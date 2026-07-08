@@ -26,7 +26,11 @@ export function tplGerar(){
     <div class="card">
       <div style="font-weight:700;margin-bottom:8px;">Checklist da proposta</div>
       ${checklist}
-      <button class="btn primary" style="font-size:15px;padding:13px 22px;margin-top:18px;" onclick="solicitarGerarPDF()">⬇ Gerar PDF da Proposta</button>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:18px;font-weight:600;font-size:13.5px;cursor:pointer;">
+        <input type="checkbox" id="baixarJson" style="width:auto;margin:0;">
+        Baixar projeto editável (.json) junto com o PDF
+      </label>
+      <button class="btn primary" style="font-size:15px;padding:13px 22px;margin-top:12px;" onclick="solicitarGerarPDF()">⬇ Gerar PDF da Proposta</button>
     </div>
   `;
 }
