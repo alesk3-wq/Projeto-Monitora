@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, pinOffsetGlobal } from './state.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById } from './utils.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
@@ -97,21 +97,49 @@ function pageObjetivo(){
     ${footerBrand()}
   `);
 }
-function equipamentoLegend(){
+// Todos os pins de todas as plantas, na ordem global de numeração
+function pinsGlobais(){
+  const out = [];
+  state.plantas.forEach((pl,li)=>pl.pins.forEach((p,pi)=>out.push({p, pl, li, pi})));
+  return out;
+}
+function equipamentoLegend(pl){
   const map = {};
-  state.planta.pins.forEach(p=>{
+  pl.pins.forEach(p=>{
     const key = p.tipoId+'|'+p.label;
     if(!map[key]) map[key] = {tipoId:p.tipoId, label:p.label, qtd:0};
     map[key].qtd += (parseInt(p.qtd)||1);
   });
   const legend = Object.values(map);
-  (state.planta.cercas||[]).forEach(c=>{
+  (pl.cercas||[]).forEach(c=>{
     legend.push({tipoId:'cerca', label:c.label, qtd:1});
   });
   return legend;
 }
 function pageEstrutura(){
-  const legend = equipamentoLegend();
+  const multi = state.plantas.length > 1;
+  const blocos = state.plantas.map((pl,li)=>{
+    const legend = equipamentoLegend(pl);
+    const areas = pl.areas||[];
+    if(legend.length===0 && areas.length===0) return '';
+    return `
+      ${multi ? `<div style="font-weight:800;color:${BRAND.corSecundaria};font-size:13.5px;margin:${li>0?'16px':'0'} 0 10px;text-transform:uppercase;letter-spacing:.4px;">${pl.nome||('Planta '+(li+1))}</div>` : ''}
+      ${legend.map(l=>`
+        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
+          <div style="width:20px;height:20px;border-radius:50%;background:${typeById(l.tipoId).color};margin-top:1px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
+          <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${l.qtd}x — ${typeById(l.tipoId).label}</b>${l.label && l.label!==typeById(l.tipoId).label ? '<br>'+l.label : ''}</div>
+        </div>`).join('')}
+      ${areas.length ? `
+        <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin:14px 0 12px;">Áreas Demarcadas</div>
+        ${areas.map(a=>{
+          const cat = areaCatById(a.catId);
+          return `<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
+            <div style="width:16px;height:16px;border-radius:4px;background:${cat.color}66;border:2px solid ${cat.color};margin-top:1px;flex-shrink:0;"></div>
+            <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${cat.label}</b>${a.descricao ? ' — '+a.descricao : ''}</div>
+          </div>`;
+        }).join('')}` : ''}
+    `;
+  }).join('');
   return pageShell(`
     ${pageHeader('03','Estrutura')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
@@ -127,38 +155,25 @@ function pageEstrutura(){
     </div>
     <div style="position:absolute;top:165px;right:64px;width:440px;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:10px;padding:20px;">
       <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:14px;">Legenda — Equipamentos na Planta</div>
-      ${legend.length===0 ? `<div style="font-size:13px;color:#8FA3BF;">Nenhum equipamento posicionado.</div>` : legend.map(l=>`
-        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
-          <div style="width:20px;height:20px;border-radius:50%;background:${typeById(l.tipoId).color};margin-top:1px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
-          <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${l.qtd}x — ${typeById(l.tipoId).label}</b>${l.label && l.label!==typeById(l.tipoId).label ? '<br>'+l.label : ''}</div>
-        </div>`).join('')}
-      ${(state.planta.areas||[]).length ? `
-        <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin:18px 0 12px;">Áreas Demarcadas</div>
-        ${state.planta.areas.map(a=>{
-          const cat = areaCatById(a.catId);
-          return `<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
-            <div style="width:16px;height:16px;border-radius:4px;background:${cat.color}66;border:2px solid ${cat.color};margin-top:1px;flex-shrink:0;"></div>
-            <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${cat.label}</b>${a.descricao ? ' — '+a.descricao : ''}</div>
-          </div>`;
-        }).join('')}` : ''}
+      ${blocos.trim()==='' ? `<div style="font-size:13px;color:#8FA3BF;">Nenhum equipamento posicionado.</div>` : blocos}
     </div>
     ${footerBrand()}
   `);
 }
-function pageMapeamento(dims){
+function pageMapeamento(pl, dims, titulo, off){
   const BOX_W = PW - 128, BOX_H = 770; // container: left/right:64, height:770
   const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
-  const pinsHtml = state.planta.pins.map((p,pi)=>{
+  const pinsHtml = pl.pins.map((p,pi)=>{
     const t = typeById(p.tipoId);
     const left = rect.x + (p.x/100)*rect.w;
     const top = rect.y + (p.y/100)*rect.h;
     const cone = !t.cameraLike ? '' : (t.foco360
       ? `<div style="position:absolute;left:${left}px;top:${top}px;width:120px;height:120px;border-radius:50%;background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;transform:translate(-50%,-50%);"></div>`
       : `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:34px solid transparent;border-right:34px solid transparent;border-top:72px solid ${t.color}66;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>`);
-    const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${pi+1}</span>`;
+    const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${off+pi+1}</span>`;
     return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');
-  const cercaHtml = (state.planta.cercas||[]).map(c=>{
+  const cercaHtml = (pl.cercas||[]).map(c=>{
     const segs = [];
     for(let i=0;i<c.pontos.length-1;i++){
       const a = c.pontos[i], b = c.pontos[i+1];
@@ -170,16 +185,16 @@ function pageMapeamento(dims){
     }
     return segs.join('');
   }).join('');
-  const areasHtml = (state.planta.areas||[]).map(a=>{
+  const areasHtml = (pl.areas||[]).map(a=>{
     const cat = areaCatById(a.catId);
     const x = rect.x + (a.x/100)*rect.w, y = rect.y + (a.y/100)*rect.h;
     const w = (a.w/100)*rect.w, h = (a.h/100)*rect.h;
     return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${cat.color}38;border:2px solid ${cat.color};border-radius:4px;box-sizing:border-box;"><span style="position:absolute;top:2px;left:2px;background:${cat.color};color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:3px;">${cat.label}</span></div>`;
   }).join('');
   return pageShell(`
-    ${pageHeader('02','Mapeamento')}
+    ${pageHeader('02', titulo)}
     <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
-      ${state.planta.imagem ? `<div style="width:100%;height:100%;background-image:url('${state.planta.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
+      ${pl.imagem ? `<div style="width:100%;height:100%;background-image:url('${pl.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:14px;">Planta não anexada</div>`}
       ${areasHtml}
       ${cercaHtml}
       ${pinsHtml}
@@ -252,12 +267,23 @@ export async function gerarPDF(){
   showToast('Gerando PDF…');
   const root = document.getElementById('pdf-render-root');
   root.innerHTML = '';
+  const gp = pinsGlobais();
   const equipCrops = [];
-  for(const p of state.planta.pins){ equipCrops.push(await generateCropDataURL(p)); }
-  const plantaDims = await loadImageDims(state.planta.imagem);
+  for(const g of gp){ equipCrops.push(await generateCropDataURL(g.p, g.pl)); }
+  const multi = state.plantas.length > 1;
+  const mapPages = [];
+  for(let li=0; li<state.plantas.length; li++){
+    const pl = state.plantas[li];
+    // Em projetos multi-planta, plantas totalmente vazias não geram página
+    if(multi && !pl.imagem && !pl.pins.length && !(pl.cercas||[]).length && !(pl.areas||[]).length) continue;
+    const dims = await loadImageDims(pl.imagem);
+    const titulo = 'Mapeamento' + (multi ? ` — ${pl.nome||('Planta '+(li+1))}` : '');
+    mapPages.push(pageMapeamento(pl, dims, titulo, pinOffsetGlobal(li)));
+  }
+  if(mapPages.length===0) mapPages.push(pageMapeamento(state.plantas[0], null, 'Mapeamento', 0));
   const pages = [
-    pageCapa(), pageSumario(), pageObjetivo(), pageMapeamento(plantaDims), pageEstrutura(),
-    ...state.planta.pins.map((p,i)=>pageEquipamento(p,i,equipCrops[i])),
+    pageCapa(), pageSumario(), pageObjetivo(), ...mapPages, pageEstrutura(),
+    ...gp.map((g,i)=>pageEquipamento(g.p, i, equipCrops[i])),
     pagePremissas(), pageEncerramento()
   ];
   const { jsPDF } = window.jspdf;
