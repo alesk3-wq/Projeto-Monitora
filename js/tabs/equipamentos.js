@@ -1,87 +1,98 @@
-import { state } from '../state.js';
+import { state, pinOffsetGlobal } from '../state.js';
 import { ICONS } from '../constants.js';
 import { typeById, fileToDataURL, defaultCropFrac } from '../utils.js';
 import { renderContent } from '../nav.js';
 
 export function tplEquipamentos(){
-  const pins = state.planta.pins;
-  return `
-    <h1 class="pagetitle">04 · Fichas de Equipamentos</h1>
-    <p class="pagesub">Uma página individual é gerada para cada equipamento posicionado na planta, com a localização e as fotos do local.</p>
-    ${pins.length===0 ? `<div class="card"><div class="empty-hint">Nenhum equipamento posicionado ainda. Vá até a aba Planta para adicionar.</div></div>` : pins.map((p,pi)=>`
+  const multi = state.plantas.length > 1;
+  const totalPins = state.plantas.reduce((s,pl)=>s+pl.pins.length, 0);
+  const cards = state.plantas.map((pl,li)=>{
+    if(pl.pins.length===0) return '';
+    const off = pinOffsetGlobal(li);
+    return `
+    ${multi ? `<div style="font-weight:800;color:var(--text-mid);font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px;">Planta — ${pl.nome||('Planta '+(li+1))}</div>` : ''}
+    ${pl.pins.map((p,pi)=>`
       <div class="card">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="icon-dot" style="width:30px;height:30px;background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
           <div>
-            <div style="font-weight:800;color:var(--text-dark);">Equipamento ${pi+1} — ${typeById(p.tipoId).label}</div>
+            <div style="font-weight:800;color:var(--text-dark);">Equipamento ${off+pi+1} — ${typeById(p.tipoId).label}</div>
             <div style="font-size:12.5px;color:var(--text-mid);">${p.label||''}</div>
           </div>
         </div>
         <div class="row">
           <div>
             <label>Localização na planta (automática)</label>
-            <img id="cropPreview-${pi}" style="width:100%;height:150px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;">
+            <img id="cropPreview-${li}-${pi}" style="width:100%;height:150px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;">
             <label style="margin-top:8px;">Zoom do recorte</label>
-            <input id="cropSlider-${pi}" type="range" min="10" max="60" step="1"
+            <input id="cropSlider-${li}-${pi}" type="range" min="10" max="60" step="1"
               value="${Math.round((p.cropFrac||0.28)*100)}"
-              onchange="setCropFrac(${pi}, this.value)" style="width:100%;">
+              onchange="setCropFrac(${li}, ${pi}, this.value)" style="width:100%;">
           </div>
           <div>
             <label>Foto do local de instalação</label>
-            <input type="file" accept="image/*" onchange="handleEquipPhoto(event, ${pi}, 'fotoLocal')" style="margin-bottom:8px;">
+            <input type="file" accept="image/*" onchange="handleEquipPhoto(event, ${li}, ${pi}, 'fotoLocal')" style="margin-bottom:8px;">
             ${p.fotoLocal ? `<img src="${p.fotoLocal}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;">` : ''}
           </div>
           <div>
             <label>Foto do que o equipamento vai visualizar</label>
-            <input type="file" accept="image/*" onchange="handleEquipPhoto(event, ${pi}, 'fotoView')" style="margin-bottom:8px;">
+            <input type="file" accept="image/*" onchange="handleEquipPhoto(event, ${li}, ${pi}, 'fotoView')" style="margin-bottom:8px;">
             ${p.fotoView ? `<img src="${p.fotoView}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;">` : ''}
           </div>
         </div>
       </div>
-    `).join('')}
+    `).join('')}`;
+  }).join('');
+  return `
+    <h1 class="pagetitle">04 · Fichas de Equipamentos</h1>
+    <p class="pagesub">Uma página individual é gerada para cada equipamento posicionado na planta, com a localização e as fotos do local.</p>
+    ${totalPins===0 ? `<div class="card"><div class="empty-hint">Nenhum equipamento posicionado ainda. Vá até a aba Planta para adicionar.</div></div>` : cards}
   `;
 }
 
-export async function handleEquipPhoto(e, pi, field){
+export async function handleEquipPhoto(e, li, pi, field){
   const f = e.target.files[0]; if(!f) return;
   const durl = await fileToDataURL(f);
-  state.planta.pins[pi][field] = durl;
+  state.plantas[li].pins[pi][field] = durl;
   renderContent();
 }
 
-export function setCropFrac(pi, val){
-  state.planta.pins[pi].cropFrac = parseInt(val)/100;
-  generateCropDataURL(state.planta.pins[pi]).then(url=>{
-    const el = document.getElementById('cropPreview-'+pi);
+export function setCropFrac(li, pi, val){
+  const pl = state.plantas[li];
+  pl.pins[pi].cropFrac = parseInt(val)/100;
+  generateCropDataURL(pl.pins[pi], pl).then(url=>{
+    const el = document.getElementById(`cropPreview-${li}-${pi}`);
     if(el && url) el.src = url;
   });
 }
 
 export function afterEquipamentosRender(){
-  const sync = (naturalWidth)=>{
-    state.planta.pins.forEach((p,pi)=>{
-      if(!p.cropFrac){
-        const s = document.getElementById('cropSlider-'+pi);
-        if(s) s.value = Math.round(defaultCropFrac(naturalWidth)*100);
-      }
-    });
-  };
-  if(state.planta.imagem){
-    const img = new Image();
-    img.onload = ()=>sync(img.naturalWidth);
-    img.src = state.planta.imagem;
-  }
-  state.planta.pins.forEach((p,pi)=>{
-    generateCropDataURL(p).then(url=>{
-      const el = document.getElementById('cropPreview-'+pi);
-      if(el && url) el.src = url;
+  state.plantas.forEach((pl,li)=>{
+    if(pl.imagem){
+      const img = new Image();
+      img.onload = ()=>{
+        pl.pins.forEach((p,pi)=>{
+          if(!p.cropFrac){
+            const s = document.getElementById(`cropSlider-${li}-${pi}`);
+            if(s) s.value = Math.round(defaultCropFrac(img.naturalWidth)*100);
+          }
+        });
+      };
+      img.src = pl.imagem;
+    }
+    pl.pins.forEach((p,pi)=>{
+      generateCropDataURL(p, pl).then(url=>{
+        const el = document.getElementById(`cropPreview-${li}-${pi}`);
+        if(el && url) el.src = url;
+      });
     });
   });
 }
 
-export function generateCropDataURL(pin){
+export function generateCropDataURL(pin, planta){
+  const pl = planta || state.planta;
   return new Promise((resolve)=>{
-    if(!state.planta.imagem){ resolve(null); return; }
+    if(!pl.imagem){ resolve(null); return; }
     const img = new Image();
     img.onload = ()=>{
       const cw = img.naturalWidth, ch = img.naturalHeight;
@@ -129,6 +140,6 @@ export function generateCropDataURL(pin){
       resolve(canvas.toDataURL('image/jpeg', 0.9));
     };
     img.onerror = ()=>resolve(null);
-    img.src = state.planta.imagem;
+    img.src = pl.imagem;
   });
 }
