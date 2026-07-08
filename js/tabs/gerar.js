@@ -3,8 +3,9 @@ import { validarProposta, CHECKS } from '../validacao.js';
 
 export function tplGerar(){
   const totalItens = state.estrutura.reduce((s,g)=>s+g.itens.reduce((s2,it)=>s2+(parseInt(it.qtd)||0),0),0);
-  const totalPins = state.planta.pins.length;
-  const totalFichas = state.planta.pins.filter(p=>p.fotoLocal && p.fotoView).length;
+  const allPins = state.plantas.flatMap(pl=>pl.pins);
+  const totalPins = allPins.length;
+  const totalFichas = allPins.filter(p=>p.fotoLocal && p.fotoView).length;
   const pend = validarProposta();
   const pendPorCampo = {};
   pend.forEach(p=>{ (pendPorCampo[p.campo] = pendPorCampo[p.campo]||[]).push(p.msg); });

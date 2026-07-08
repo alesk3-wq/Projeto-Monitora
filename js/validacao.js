@@ -14,10 +14,10 @@ export function validarProposta(){
   if(!(state.projeto.unidade||'').trim()) pend.push({campo:'projeto', msg:'Unidade/local não preenchida (aba Dados do Projeto)'});
   if(!(state.objetivo.problema||'').trim()) pend.push({campo:'objetivo', msg:'"Área a ser Monitorada" vazia (aba 01)'});
   if(!(state.objetivo.solucao||'').trim()) pend.push({campo:'objetivo', msg:'"Diretriz da Proposta" vazia (aba 01)'});
-  if(!state.planta.imagem) pend.push({campo:'planta', msg:'Planta baixa não anexada (aba 02)'});
+  if(!state.plantas.some(pl=>pl.imagem)) pend.push({campo:'planta', msg:'Nenhuma planta baixa anexada (aba 02)'});
   const temItens = state.estrutura.some(g=>g.itens && g.itens.some(it=>(it.nome||'').trim()));
   if(!temItens) pend.push({campo:'estrutura', msg:'Nenhum equipamento na Estrutura (aba 03)'});
-  const semFoto = state.planta.pins.filter(p=>!p.fotoLocal || !p.fotoView).length;
+  const semFoto = state.plantas.reduce((s,pl)=>s+pl.pins.filter(p=>!p.fotoLocal || !p.fotoView).length, 0);
   if(semFoto>0) pend.push({campo:'fichas', msg:`${semFoto} equipamento(s) sem foto do local e/ou da visualização (aba 04)`});
   const temPremissa = state.premissas.some(p=>(p.titulo||'').trim() || (p.desc||'').trim());
   if(!temPremissa) pend.push({campo:'premissas', msg:'Nenhuma premissa cadastrada (aba 05)'});
