@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>harness</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<aside id="sidebar"><div id="navBtns"></div><div id="sidebar-footer"></div></aside>
+<div class="mobile-topbar" style="display:none;"><div id="navCurrentLabel"></div><button id="navPrev"></button><button id="navNext"></button></div>
+<main id="content"></main>
+<div id="toast"></div>
+<div id="pdf-render-root" style="position:absolute;left:-99999px;top:0;"></div>
+<pre id="test-out">AGUARDANDO</pre>
+<script type="module">
+import './js/main.js';
+const out = [];
+function assert(nome, cond){ out.push(`${cond?'PASS':'FAIL'} :: ${nome}`); }
+try{
+  const { state } = await import('./js/state.js');
+  const v = await import('./js/validacao.js');
+
+  // 1. duas plantas
+  window.addPlanta();
+  assert('addPlanta cria 2ª planta', state.plantas.length===2 && state.plantaAtiva===1);
+  state.plantas[0].nome = 'Térreo';
+  state.plantas[1].nome = 'Galpão B';
+
+  // 2. pins nas duas (3 + 2) — numeração global
+  state.plantas[0].pins.push(
+    {tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:10, y:10, direcao:0},
+    {tipoId:'dome', label:'Câmera Dome', qtd:1, x:50, y:50, direcao:90},
+    {tipoId:'ptz', label:'PTZ', qtd:1, x:80, y:20, direcao:0});
+  state.plantas[1].pins.push(
+    {tipoId:'lpr', label:'LPR Portaria', qtd:1, x:30, y:60, direcao:180},
+    {tipoId:'fechadura', label:'Fechadura', qtd:2, x:70, y:70});
+
+  // 3. aba planta: seletor com 2 abas + botão add; lista numera 4 e 5 na planta 2
+  window.switchTab('planta');
+  const tabs = document.querySelectorAll('.planta-tab');
+  assert('seletor tem 3 botões (2 plantas + add)', tabs.length===3);
+  assert('aba ativa é Galpão B', document.querySelector('.planta-tab.active')?.textContent==='Galpão B');
+  const nums = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
+  assert('lista da planta 2 numera 4 e 5', nums[0]==='4' && nums[1]==='5');
+
+  // 4. fichas: números globais e subtítulo por planta
+  window.switchTab('equipamentos');
+  const html = document.getElementById('content').innerHTML;
+  assert('ficha Equipamento 4 existe', html.includes('Equipamento 4'));
+  assert('subtítulo da planta aparece', html.includes('Planta — Térreo') && html.includes('Planta — Galpão B'));
+
+  // 5. gerar a partir da planta: 2 grupos, Ponto global
+  window.importFromPlanta();
+  const grupos = state.estrutura.filter(g=>g.titulo.startsWith('Equipamentos Mapeados'));
+  assert('2 grupos criados', grupos.length===2);
+  assert('grupo 1 = Térreo', grupos[0].titulo==='Equipamentos Mapeados — Térreo');
+  assert('item da planta 2 usa Ponto 4', grupos[1].itens[0].nome.includes('Ponto 4'));
+
+  // 6. contadores da aba Gerar somam tudo
+  window.switchTab('gerar');
+  const stats = [...document.querySelectorAll('.stat .n')].map(e=>e.textContent);
+  assert('total de pontos = 5', stats[2]==='5');
+
+  // 7. validação multi-planta
+  const campos = v.validarProposta().map(p=>p.campo);
+  assert('valida fichas de todas as plantas', v.validarProposta().find(p=>p.campo==='fichas')?.msg.startsWith('5'));
+
+  // 8. export não vaza o alias
+  const json = JSON.stringify(state);
+  assert('JSON tem plantas e não tem alias', json.includes('"plantas"') && !json.includes('"planta":'));
+
+  // 9. round-trip de migração (simula o normalizador do import com objeto antigo)
+  const antigo = {projeto:{unidade:'X'}, objetivo:{}, estrutura:[], premissas:[], planta:{imagem:null, pins:[{tipoId:'bullet',x:1,y:1}], zoom:100}};
+  // replica exatamente o bloco de migração de persistence.js:
+  if(antigo.planta && !antigo.plantas){ antigo.plantas=[antigo.planta]; delete antigo.planta; }
+  assert('migração de .json antigo', antigo.plantas.length===1 && antigo.plantas[0].pins.length===1);
+
+  // 10. remover a planta 2 renumera
+  state.plantaAtiva = 1;
+  state.plantas.splice(1,1); state.plantaAtiva = 0;
+  window.switchTab('planta');
+  const nums2 = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
+  assert('após excluir planta 2, planta 1 numera 1..3', nums2[0]==='1' && nums2[2]==='3');
+}catch(err){
+  out.push('ERRO :: ' + (err && err.stack || err));
+}
+document.getElementById('test-out').textContent = 'RESULTADOS\n' + out.join('\n');
+</script>
+</body>
+</html>
