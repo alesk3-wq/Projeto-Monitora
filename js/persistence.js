@@ -1,4 +1,4 @@
-import { state, setState } from './state.js';
+import { state, setState, novaPlanta, attachPlantaAlias } from './state.js';
 import { switchTab } from './nav.js';
 import { showToast } from './utils.js';
 
@@ -22,12 +22,24 @@ export function importarProjetoFile(e){
   reader.onload = (ev)=>{
     try{
       const loaded = JSON.parse(ev.target.result);
+      // Migração: .json antigos têm 'planta' (singular) em vez de 'plantas'
+      if(loaded.planta && !loaded.plantas){
+        loaded.plantas = [loaded.planta];
+        delete loaded.planta;
+      }
+      if(!Array.isArray(loaded.plantas) || loaded.plantas.length===0) loaded.plantas = [novaPlanta('Planta 1')];
+      loaded.plantaAtiva = Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1);
+      loaded.plantas.forEach((pl,i)=>{
+        if(!pl.nome) pl.nome = 'Planta '+(i+1);
+        if(pl.zoom===undefined) pl.zoom = 100;
+        if(!pl.pins) pl.pins = [];
+        if(!pl.cercas) pl.cercas = [];
+        if(!pl.areas) pl.areas = [];
+        if(!pl.selectedTipo) pl.selectedTipo = 'bullet';
+        if(!pl.selectedAreaCat) pl.selectedAreaCat = 'area1';
+      });
       setState(loaded);
-      if(!state.planta) state.planta = {imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[]};
-      if(state.planta.zoom===undefined) state.planta.zoom = 100;
-      if(!state.planta.cercas) state.planta.cercas = [];
-      if(!state.planta.areas) state.planta.areas = [];
-      if(!state.planta.selectedAreaCat) state.planta.selectedAreaCat = 'area1';
+      attachPlantaAlias(state);
       switchTab('projeto');
       showToast('Projeto importado com sucesso.');
     }catch(err){
