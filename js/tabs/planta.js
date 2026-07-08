@@ -56,7 +56,7 @@ export function tplPlanta(){
             </select>
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">
-            ${typeById(p.tipoId).cameraLike ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
+            ${typeById(p.tipoId).cameraLike && !typeById(p.tipoId).foco360 ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
             <button class="btn danger small" onclick="removePin(${pi})">✕</button>
           </div>
         `).join('')}
@@ -205,7 +205,14 @@ export function afterPlantaRender(){
   if(wrap){
     state.planta.pins.forEach((p,pi)=>{
       const t = typeById(p.tipoId);
-      if(t.cameraLike){
+      if(t.cameraLike && t.foco360){
+        // PTZ/Speed Dome enxerga 360° — círculo translúcido, sem handle de rotação.
+        // Usa o mesmo id 'cone-' para o updatePinDOM mover junto (o rotate() é inócuo num círculo).
+        const circ = document.createElement('div');
+        circ.id = 'cone-'+pi;
+        circ.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:110px;height:110px;border-radius:50%;transform:translate(-50%,-50%);background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;pointer-events:none;z-index:1;`;
+        wrap.appendChild(circ);
+      } else if(t.cameraLike){
         const cone = document.createElement('div');
         cone.id = 'cone-'+pi;
         cone.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:110px;height:110px;transform:translate(-50%,-50%) rotate(${p.direcao||0}deg);transform-origin:50% 50%;clip-path:polygon(50% 50%, 26% 0%, 74% 0%);background:${t.color}55;pointer-events:none;z-index:1;`;

@@ -101,6 +101,26 @@ export function generateCropDataURL(pin){
       ctx.drawImage(img, sx, sy, cropW, cropH, dx, dy, dw, dh);
       const markerX = dx + ((pin.x/100*cw - sx)/cropW)*dw;
       const markerY = dy + ((pin.y/100*ch - sy)/cropH)*dh;
+      // Foco da câmera por baixo do marcador: setor na direção do pin, ou círculo cheio (foco360)
+      const t = typeById(pin.tipoId);
+      if(t.cameraLike){
+        const R = 75; // px do canvas — visual consistente entre fichas, independente do cropFrac
+        ctx.fillStyle = t.color + '40';
+        if(t.foco360){
+          ctx.beginPath();
+          ctx.arc(markerX, markerY, R, 0, Math.PI*2);
+          ctx.fill();
+          ctx.lineWidth = 1.5; ctx.strokeStyle = t.color + '88'; ctx.stroke();
+        } else {
+          const a = ((pin.direcao||0) - 90) * Math.PI/180; // 0° = norte/topo → ângulo do canvas
+          const half = 24 * Math.PI/180;                   // meio-ângulo do cone do editor
+          ctx.beginPath();
+          ctx.moveTo(markerX, markerY);
+          ctx.arc(markerX, markerY, R, a - half, a + half);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
       ctx.beginPath();
       ctx.arc(markerX, markerY, 10, 0, Math.PI*2);
       ctx.fillStyle = typeById(pin.tipoId).color;

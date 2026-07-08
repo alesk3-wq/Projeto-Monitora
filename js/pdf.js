@@ -151,7 +151,9 @@ function pageMapeamento(dims){
     const t = typeById(p.tipoId);
     const left = rect.x + (p.x/100)*rect.w;
     const top = rect.y + (p.y/100)*rect.h;
-    const cone = t.cameraLike ? `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:24px solid transparent;border-right:24px solid transparent;border-top:50px solid ${t.color}55;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>` : '';
+    const cone = !t.cameraLike ? '' : (t.foco360
+      ? `<div style="position:absolute;left:${left}px;top:${top}px;width:120px;height:120px;border-radius:50%;background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;transform:translate(-50%,-50%);"></div>`
+      : `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:34px solid transparent;border-right:34px solid transparent;border-top:72px solid ${t.color}66;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>`);
     const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${pi+1}</span>`;
     return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');
