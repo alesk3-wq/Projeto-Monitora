@@ -1,4 +1,4 @@
-import { state } from '../state.js';
+import { state, novaPlanta, pinOffsetGlobal } from '../state.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
 import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
@@ -6,10 +6,21 @@ import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo,
 
 export function tplPlanta(){
   const pl = state.planta;
+  const off = pinOffsetGlobal(state.plantaAtiva);
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
     <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização.</p>
     <div class="card">
+      <div class="planta-tabs">
+        ${state.plantas.map((pt,i)=>`
+          <button class="planta-tab ${i===state.plantaAtiva?'active':''}" onclick="selectPlanta(${i})">${pt.nome||('Planta '+(i+1))}</button>`).join('')}
+        <button class="planta-tab add" onclick="addPlanta()">+ Nova planta</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+        <label style="margin:0;">Nome da planta</label>
+        <input type="text" style="width:220px;margin:0;" value="${pl.nome||''}" oninput="state.plantas[${state.plantaAtiva}].nome=this.value" onchange="renderContent()">
+        ${state.plantas.length>1 ? `<button class="btn danger small" onclick="removePlanta(${state.plantaAtiva})">Excluir planta</button>` : ''}
+      </div>
       <label>Planta baixa (imagem)</label>
       <input type="file" accept="image/*" onchange="handlePlantaUpload(event)" style="margin-bottom:16px;">
       <div class="toolbar-types">
@@ -50,7 +61,7 @@ export function tplPlanta(){
         ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
-            <b style="font-size:12px;color:var(--text-mid);width:18px;">${pi+1}</b>
+            <b style="font-size:12px;color:var(--text-mid);width:18px;">${off+pi+1}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
               ${EQUIP_TYPES.map(t=>`<option value="${t.id}" ${t.id===p.tipoId?'selected':''}>${t.label}</option>`).join('')}
             </select>
@@ -80,6 +91,29 @@ let pinch = null;
 let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem traçado
 
 export function cancelarTraco(){ tracoAtual = null; }
+export function selectPlanta(i){
+  if(i===state.plantaAtiva) return;
+  cancelarTraco();
+  state.plantaAtiva = i;
+  renderContent();
+}
+export function addPlanta(){
+  cancelarTraco();
+  state.plantas.push(novaPlanta('Planta '+(state.plantas.length+1)));
+  state.plantaAtiva = state.plantas.length-1;
+  renderContent();
+}
+export function removePlanta(i){
+  const pt = state.plantas[i];
+  if(!pt) return;
+  const temConteudo = pt.imagem || pt.pins.length || pt.cercas.length || pt.areas.length;
+  if(temConteudo && !confirm(`Excluir a planta "${pt.nome||('Planta '+(i+1))}" e tudo que está nela?`)) return;
+  cancelarTraco();
+  state.plantas.splice(i,1);
+  if(state.plantas.length===0) state.plantas.push(novaPlanta('Planta 1'));
+  state.plantaAtiva = Math.min(state.plantaAtiva, state.plantas.length-1);
+  renderContent();
+}
 export function selectTipo(id){
   if(state.planta.selectedTipo==='cerca' && id!=='cerca') tracoAtual = null;
   state.planta.selectedTipo = id;
@@ -181,6 +215,7 @@ function renderCercas(wrap){
 export function afterPlantaRender(){
   const img = document.getElementById('plantaImg');
   const wrap = document.getElementById('plantaWrap');
+  const off = pinOffsetGlobal(state.plantaAtiva);
   if(img){
     img.onclick = (e)=>{
       if(suppressNextClick){ suppressNextClick = false; return; }
@@ -234,7 +269,7 @@ export function afterPlantaRender(){
       pin.className = 'planta-pin';
       pin.title = 'Arraste para reposicionar';
       pin.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:3;cursor:grab;touch-action:none;`;
-      pin.innerHTML = ICONS[t.id] + `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${pi+1}</span>`;
+      pin.innerHTML = ICONS[t.id] + `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${off+pi+1}</span>`;
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
     });
