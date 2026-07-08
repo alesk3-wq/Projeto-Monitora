@@ -37,13 +37,13 @@ export function addItem(gi){ state.estrutura[gi].itens.push({qtd:1,nome:'',desc:
 export function removeItem(gi,ii){ state.estrutura[gi].itens.splice(ii,1); renderContent(); }
 
 export function importFromPlanta(){
-  const map = {};
-  state.planta.pins.forEach(p=>{
-    const key = p.tipoId+'|'+p.label;
-    if(!map[key]) map[key] = {qtd:0, nome:p.label||typeById(p.tipoId).label, desc:''};
-    map[key].qtd += (parseInt(p.qtd)||1);
-  });
-  const itens = Object.values(map);
+  // Um item por pin (sem agrupar), numerado com o número global do pin —
+  // o mesmo que aparece no editor, no Mapeamento do PDF e no cabeçalho da ficha.
+  const itens = state.planta.pins.map((p,pi)=>({
+    qtd: parseInt(p.qtd)||1,
+    nome: `${p.label||typeById(p.tipoId).label} — Ponto ${pi+1}`,
+    desc: '',
+  }));
   (state.planta.cercas||[]).forEach(c=>{
     itens.push({qtd:1, nome:c.label||'Cerca / Concertina', desc:''});
   });
