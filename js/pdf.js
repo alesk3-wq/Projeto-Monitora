@@ -120,7 +120,7 @@ function pageEstrutura(){
           <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:15px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
           ${g.itens.map(it=>`
             <div style="font-size:13.5px;color:#33415A;line-height:1.5;margin-bottom:4px;">
-              <b>${it.qtd||0}x ${it.nome||''}</b>${it.desc?': '+it.desc:''}
+              <b>${(parseInt(it.qtd)||0)>=2 ? (parseInt(it.qtd)||0)+'x ' : ''}${it.nome||''}</b>${it.desc?': '+it.desc:''}
             </div>`).join('')}
         </div>`).join('')}
     </div>
@@ -184,10 +184,23 @@ function pageMapeamento(dims){
     ${footerBrand()}
   `);
 }
+// Item da Estrutura correspondente ao pin de índice `index` (procura "Ponto N" no nome,
+// como o "Gerar a partir da planta" nomeia; \b evita que "Ponto 1" case com "Ponto 10")
+function itemDoPonto(index){
+  const re = new RegExp(`Ponto ${index+1}\\b`);
+  for(const g of state.estrutura){
+    for(const it of (g.itens||[])){
+      if(it.nome && re.test(it.nome)) return it;
+    }
+  }
+  return null;
+}
 function pageEquipamento(pin, index, cropUrl){
   const t = typeById(pin.tipoId);
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:13px;">${txt}</div>`;
+  const item = itemDoPonto(index);
+  const legendaItem = item ? `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;"><b style="color:${BRAND.cor};">${item.nome}</b>${item.desc ? '<br>'+item.desc : ''}</div>` : '';
   return pageShell(`
     ${pageHeader(String(index+1), t.label + (pin.label?' — '+pin.label:''))}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
@@ -195,6 +208,7 @@ function pageEquipamento(pin, index, cropUrl){
       <div style="flex:1;">
         <div style="font-weight:800;color:${BRAND.cor};font-size:13px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Localização na Planta</div>
         ${cropUrl ? `<img src="${cropUrl}" style="${boxStyle}">` : placeholder('Planta não anexada')}
+        ${legendaItem}
       </div>
       <div style="flex:1;">
         <div style="font-weight:800;color:${BRAND.cor};font-size:13px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Local de Instalação</div>
