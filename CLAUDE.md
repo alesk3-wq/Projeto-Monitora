@@ -25,7 +25,7 @@ A logo da Bracell foi **extraída diretamente desse PDF de referência** (via `p
 
 A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `assets/logo-bracell.png` + módulos ES em `js/` (um arquivo por responsabilidade, ver `js/tabs/` para os templates de cada aba). Sem build step, sem framework — só ES modules nativos do navegador.
 
-**Como rodar:** a partir da pasta `claudefiles/`, rode `npx serve .` (não precisa instalar nada) e abra a URL local impressa no terminal. Não é mais possível abrir `index.html` direto por duplo-clique — navegadores bloqueiam `import`/`export` de módulos ES quando a página é aberta via `file://`.
+**Como rodar:** precisa de um servidor HTTP local (não dá pra abrir `index.html` por duplo-clique — navegadores bloqueiam `import`/`export` de módulos ES via `file://`). Atenção: `npx serve .` **falha nesta rede** (TLS corporativo, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` ao baixar pacotes) — use um servidor estático próprio em Node (script de ~15 linhas com `http.createServer` + `fs.readFile`, mapeando os MIME de .html/.js/.css/.png) ou a versão publicada em `https://projvision35.web.app`.
 
 ### Bibliotecas externas (via CDN, cdnjs)
 - `html2canvas` 1.4.1 — rasteriza cada "página" da proposta para gerar o PDF
@@ -104,6 +104,19 @@ state = {
 - **Não usa `window.storage`** (essa API só funciona dentro do ambiente de artifact do Claude, não em um arquivo `.html` baixado e aberto localmente — isso foi tentado antes e removido por não funcionar fora do chat)
 - Persistência atual é via **exportar/importar projeto em `.json`** (botões no rodapé da sidebar: `exportarProjeto()` / `importarProjetoFile()`), que serializa/restaura o `state` inteiro, incluindo imagens em base64
 - O projeto agora tem um repositório remoto no GitHub (`https://github.com/alesk3-wq/Projeto-Monitora`), branch `master`. O desenvolvimento continua diretamente com o Claude, usando este `CLAUDE.md` como fonte de contexto entre sessões — o Git remoto é usado como backup/histórico, não como fluxo de colaboração multi-pessoa (ainda é uma única pessoa desenvolvendo com o Claude)
+
+## Estado do projeto (leia isto para retomar a conversa)
+
+**Tudo que este arquivo descreve está implementado, revisado e publicado** — GitHub `master` + Firebase Hosting (`https://projvision35.web.app`, projeto `projvision35`). Entregas concluídas, em ordem:
+
+1. Ferramenta base (todas as abas + geração de PDF) e separação em módulos ES (`js/`)
+2. Touch/tablet: menu mobile, pinch-zoom ancorado, alvos maiores em telas touch
+3. Cerca/concertina como traçado de perímetro; fix dos pins deslocados no PDF (letterbox); triângulos decorativos sem `clip-path`; validações pré-PDF (checklist + modal); recorte adaptativo das fichas com slider
+4. Demarcadores de área (retângulos categorizados com paleta de 7 cores, editor interativo + PDF)
+
+**Pendente de validação humana:** teste de campo no celular (pinch, desenho de área por touch, PDF com áreas) — o deploy no Firebase existe para isso.
+
+**Como o desenvolvimento funciona:** brainstorming → spec → plano detalhado → execução com subagentes (1 implementador + 1 revisor por tarefa + review final da branch). Specs/planos de trabalho **já executado** não ficam no repo — são removidos após a entrega (se precisar consultar, estão no histórico do git). Commits direto na `master` (decisão do usuário, dev solo). Deploy: `firebase deploy --only hosting` com o CLI global — `npx` **não funciona** nesta rede (erro TLS `UNABLE_TO_VERIFY_LEAF_SIGNATURE`); para servir localmente, use um servidor estático próprio em Node em vez de `npx serve`.
 
 ## Limitações conhecidas (em aberto)
 - Sem múltiplos projetos simultâneos / histórico de versões dentro da própria ferramenta (cada import de `.json` substitui o estado atual)
