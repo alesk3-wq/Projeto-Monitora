@@ -111,7 +111,8 @@ export function removePlanta(i){
   cancelarTraco();
   state.plantas.splice(i,1);
   if(state.plantas.length===0) state.plantas.push(novaPlanta('Planta 1'));
-  state.plantaAtiva = Math.min(state.plantaAtiva, state.plantas.length-1);
+  if(i < state.plantaAtiva) state.plantaAtiva--;
+  state.plantaAtiva = Math.max(0, Math.min(state.plantaAtiva, state.plantas.length-1));
   renderContent();
 }
 export function selectTipo(id){

@@ -35,9 +35,9 @@ A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `asset
 ### Estrutura de abas (sidebar)
 1. **Dados do Projeto** — unidade/local, equipe/núcleo responsável, endereço, responsável técnico, data
 2. **01 · Problema & Solução** — dois textareas (mapeados para "Área a ser Monitorada" e "Diretriz da Proposta" do modelo original)
-3. **02 · Planta / Mapeamento** — upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%, botões ou pinch com dois dedos), lista de pins editável. Selecionar o tipo **Cerca / Concertina** entra em *modo traçado*: cada clique adiciona um vértice de uma linha de perímetro (barra flutuante com Desfazer/Concluir/Cancelar; concluir exige ≥2 pontos), e os traçados concluídos têm vértices arrastáveis + linha própria na lista. O botão **▧ Demarcar Área** entra em *modo área*: clica-e-arrasta desenha um retângulo semi-transparente sobre a planta, classificado por uma paleta de 7 categorias (`AREA_CATS` em `js/constants.js`: Área 1–6 com descrição padrão e cor fixa, gradiente de criticidade + "Outro" cinza com descrição livre); em modo área os retângulos são interativos (arrastar o corpo move, alça no canto inferior-direito redimensiona) e fora dele têm `pointer-events:none` (pins funcionam por cima); cada área tem linha na lista (select de categoria re-preenche a descrição padrão + input de descrição + excluir). A lógica vive em `js/tabs/areas.js` (módulo próprio; `planta.js` delega). Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
-4. **03 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" cria um novo grupo com **um item por pin, sem agrupar** (`Nx <rótulo> — Ponto <número global do pin>`, descrição vazia para preencher individualmente) + os traçados de cerca (`1x` cada). A numeração "Ponto N" é a mesma do editor, do Mapeamento do PDF e do cabeçalho das fichas
-5. **04 · Fichas de Equipamentos** — uma "ficha" por equipamento posicionado (traçados de cerca não geram ficha), com recorte automático da planta (fração adaptativa à resolução: `clamp(800/largura, 15%, 50%)`, ajustável por ficha via slider "Zoom do recorte" que grava `pin.cropFrac`) + upload de foto do local de instalação + upload de foto da visualização esperada. No PDF, abaixo do recorte "Localização na Planta", a ficha mostra o item correspondente da Estrutura (nome em negrito + descrição), casado pelo texto "Ponto N" no nome do item (`itemDoPonto` em `js/pdf.js`, regex com `\b` pra "Ponto 1" não casar "Ponto 10"); sem item casando, a legenda simplesmente não aparece
+3. **02 · Planta / Mapeamento** — **múltiplas plantas por projeto**: mini-abas no topo do card (nome de cada planta + "+ Nova planta"), input de nome e "Excluir planta" (≥2 plantas, `confirm` quando tem conteúdo); cada planta tem imagem/zoom/pins/cercas/áreas próprios e tudo abaixo opera na planta ativa. Upload da planta baixa, toolbar de tipos de equipamento com ícones, clique para posicionar, zoom (60%–400%, botões ou pinch com dois dedos), lista de pins editável. Selecionar o tipo **Cerca / Concertina** entra em *modo traçado*: cada clique adiciona um vértice de uma linha de perímetro (barra flutuante com Desfazer/Concluir/Cancelar; concluir exige ≥2 pontos), e os traçados concluídos têm vértices arrastáveis + linha própria na lista. O botão **▧ Demarcar Área** entra em *modo área*: clica-e-arrasta desenha um retângulo semi-transparente sobre a planta, classificado por uma paleta de 7 categorias (`AREA_CATS` em `js/constants.js`: Área 1–6 com descrição padrão e cor fixa, gradiente de criticidade + "Outro" cinza com descrição livre); em modo área os retângulos são interativos (arrastar o corpo move, alça no canto inferior-direito redimensiona) e fora dele têm `pointer-events:none` (pins funcionam por cima); cada área tem linha na lista (select de categoria re-preenche a descrição padrão + input de descrição + excluir). A lógica vive em `js/tabs/areas.js` (módulo próprio; `planta.js` delega). Vem antes de Estrutura de propósito: o usuário posiciona os equipamentos na planta primeiro, depois usa o botão "Gerar a partir da planta" na aba Estrutura para agregar esses pins automaticamente
+4. **03 · Estrutura** — grupos dinâmicos de equipamento (título do grupo + itens com qtd/nome/descrição). Botão "Gerar a partir da planta" cria **um grupo por planta** ("Equipamentos Mapeados — {nome}" quando há mais de uma planta) com **um item por pin, sem agrupar** (`Nx <rótulo> — Ponto <número global do pin>`, descrição vazia para preencher individualmente) + os traçados de cerca daquela planta (`1x` cada). A numeração "Ponto N" é a mesma do editor, do Mapeamento do PDF e do cabeçalho das fichas
+5. **04 · Fichas de Equipamentos** — uma "ficha" por equipamento posicionado **em qualquer planta** (numeração global; subtítulo com o nome da planta quando há mais de uma; traçados de cerca não geram ficha), com recorte automático da planta do pin (fração adaptativa à resolução: `clamp(800/largura, 15%, 50%)`, ajustável por ficha via slider "Zoom do recorte" que grava `pin.cropFrac`) + upload de foto do local de instalação + upload de foto da visualização esperada. No PDF, abaixo do recorte "Localização na Planta", a ficha mostra o item correspondente da Estrutura (nome em negrito + descrição), casado pelo texto "Ponto N" no nome do item (`itemDoPonto` em `js/pdf.js`, regex com `\b` pra "Ponto 1" não casar "Ponto 10"); sem item casando, a legenda simplesmente não aparece
 6. **05 · Premissas** — lista título/descrição, com botão de sugestões padrão pré-escritas
 7. **Gerar Proposta** — resumo com contadores + checklist de pendências (✓/✗ por item, via `validarProposta()` de `js/validacao.js`) + checkbox "Baixar projeto editável (.json) junto com o PDF" (`#baixarJson`, lida por `gerarPDF` no fim: marcada → chama `exportarProjeto()` após o `pdf.save`) + botão que chama `solicitarGerarPDF()`: se houver pendências abre um modal listando-as com "Gerar mesmo assim" / "Voltar e completar"; sem pendências gera direto
 
@@ -49,7 +49,9 @@ state = {
   projeto: { unidade, local, equipe, responsavel, data },
   objetivo: { problema, solucao },
   estrutura: [ { titulo, itens: [ {qtd, nome, desc} ] } ],
-  planta: {
+  plantaAtiva: 0,   // índice da planta ativa no editor
+  plantas: [ {      // N plantas por projeto; cada uma com:
+    nome,            // ex: "Térreo" (editável nas mini-abas da aba Planta)
     imagem,          // dataURL da planta baixa
     selectedTipo,    // tipo de equipamento selecionado na toolbar
     zoom,            // 60–400 (%)
@@ -71,10 +73,12 @@ state = {
       // descricao pré-preenchida pela categoria (editável); .json antigos importam com areas:[]
     ],
     selectedAreaCat, // categoria armada na paleta do modo área ('area1' default)
-  },
+  } ],
   premissas: [ {titulo, desc} ],
 }
 ```
+
+⚠ **`state.planta` (singular) ainda existe — como GETTER vivo não-enumerável → `plantas[plantaAtiva]`** (`attachPlantaAlias` em `js/state.js`). Todo código que opera "na planta ativa" (planta.js, areas.js, pinch, upload) usa `state.planta`; por ser não-enumerável, fica **fora do `JSON.stringify`** (o export serializa só `plantas` + `plantaAtiva`) e precisa ser **re-anexado após `setState`** (persistence.js faz isso no import). `.json` antigos com `planta` singular migram para `plantas:[planta]` no import. **Numeração global dos pontos:** `pinOffsetGlobal(plantaIdx)` em `js/state.js` (soma dos pins das plantas anteriores) — badge do editor, "Ponto N" da Estrutura, Mapeamento e fichas usam a mesma sequência contínua atravessando as plantas.
 
 ### Tipos de equipamento (`EQUIP_TYPES`)
 10 tipos definidos, cada um com `id`, `label`, `color` e `cameraLike` (bool):
@@ -94,7 +98,7 @@ state = {
 
 ### Geração de PDF
 - `gerarPDF()` monta um array de "páginas" (cada uma é uma `div` de 1414×1000px), renderiza cada uma fora da tela, rasteriza com `html2canvas` e monta o PDF com `jsPDF`
-- Ordem atual das páginas: Capa, Sumário, Objetivo (01), **Mapeamento (02)**, **Estrutura (03)** — a legenda de equipamentos posicionados na planta é renderizada na página de Estrutura, não na de Mapeamento (foi movida para lá para deixar a planta ocupar a largura toda) —, Fichas de Equipamento (uma por pin), Premissas (05), Encerramento
+- Ordem atual das páginas: Capa, Sumário, Objetivo (01), **Mapeamento (02) — uma página POR PLANTA** (título "Mapeamento — {nome}" quando multi; plantas totalmente vazias são puladas em projetos multi-planta), **Estrutura (03)** — a legenda de equipamentos é renderizada na página de Estrutura, **agrupada por planta** (subtítulo com o nome quando multi, incluindo a seção "Áreas Demarcadas" de cada planta) —, Fichas de Equipamento (uma por pin, ordem global), Premissas (05), Encerramento
 - Uma página é gerada **por equipamento posicionado** na planta (recorte da planta + foto do local + foto da visualização), então o PDF cresce conforme a quantidade de equipamentos
 - Paleta de cores fixa da Bracell: `BRAND.cor` (#0A2E5C, navy), `BRAND.corSecundaria` (#0066B3, azul), `BRAND.corAcento` (#7CC242, verde) — usadas nos triângulos diagonais decorativos, cabeçalhos numerados e legendas, no mesmo estilo visual do documento de referência
 - Na página de Mapeamento, pins/cones/segmentos de cerca são posicionados **em px relativos ao retângulo efetivo da imagem** (helpers `loadImageDims` + `containRect` em `js/pdf.js`): como a planta é encaixada com `background-size:contain`, posicionar em % do container deslocava os pins quando a proporção da imagem diferia da do container (bug corrigido). Ordem de emissão: **áreas demarcadas → segmentos de cerca → pins** (áreas por baixo de tudo, pins por cima, como no editor). Cada pin no Mapeamento leva a bolinha preta com seu número global (mesma numeração do editor, dos itens "Ponto N" da Estrutura e das fichas). Cones de direção no Mapeamento são reforçados (borda 34/72px, alpha 66) e a PTZ sai como círculo 360° de 120px. Na página de Estrutura, o prefixo de quantidade `Nx` só aparece quando a qtd é ≥2 (item individual não ganha "1x"). No recorte da ficha (`generateCropDataURL` em `js/tabs/equipamentos.js`), o foco da câmera é desenhado no canvas por baixo do marcador: setor de raio 75px (meio-ângulo 24°, `direcao` 0 = norte) para direcionais, círculo cheio para `foco360`. Os retângulos de área usam fill translúcido em hex8 (`cor+'38'`) + borda sólida + etiqueta com o label da categoria; a página de Estrutura ganha a seção "Áreas Demarcadas" na caixa de legenda (quadradinho da cor + label — descrição), só quando houver áreas
@@ -113,6 +117,8 @@ state = {
 2. Touch/tablet: menu mobile, pinch-zoom ancorado, alvos maiores em telas touch
 3. Cerca/concertina como traçado de perímetro; fix dos pins deslocados no PDF (letterbox); triângulos decorativos sem `clip-path`; validações pré-PDF (checklist + modal); recorte adaptativo das fichas com slider
 4. Demarcadores de área (retângulos categorizados com paleta de 7 cores, editor interativo + PDF)
+5. Itens individuais "Ponto N" na Estrutura + números nos pins do PDF + legenda do item na ficha; foco das câmeras (setor no recorte da ficha, cone reforçado no Mapeamento, PTZ 360°); checkbox de download do `.json` junto com o PDF
+6. **Múltiplas plantas por projeto** (mini-abas, numeração global contínua, Mapeamento por planta no PDF, um grupo por planta na Estrutura, migração de `.json` antigos) — arquitetura do alias `state.planta` → planta ativa (ver Modelo de dados)
 
 **Pendente de validação humana:** teste de campo no celular (pinch, desenho de área por touch, PDF com áreas) — o deploy no Firebase existe para isso.
 
@@ -122,7 +128,9 @@ state = {
 - Sem múltiplos projetos simultâneos / histórico de versões dentro da própria ferramenta (cada import de `.json` substitui o estado atual)
 - PDFs com muitos equipamentos ficam grandes (uma página cheia por equipamento)
 - Traçado de cerca não tem metragem/escala (decisão de escopo) nem edição de vértice individual pós-conclusão (excluir e redesenhar)
-- Rótulos de pins/cercas e descrições de áreas são interpolados sem escape em atributos `value="..."` — um valor contendo `"` quebra a linha da lista (padrão pré-existente em todo o app)
+- Rótulos de pins/cercas, descrições de áreas e **nomes de plantas** são interpolados sem escape em atributos/HTML — um valor contendo `"` ou `<` quebra a UI (padrão pré-existente em todo o app; o nome da planta também alimenta o título do Mapeamento no PDF)
+- Excluir uma planta (ou um pin) **renumera** os pontos globais seguintes — grupos já gerados na Estrutura não renumeram sozinhos (gerar de novo e apagar o antigo)
+- `addPlanta` nomeia por contagem ("Planta N+1") — excluir e adicionar pode duplicar nome (cosmético; a numeração é por índice, nomes são só rótulos)
 - Em modo área não dá pra começar a desenhar um retângulo novo de dentro de um existente (o arrasto do corpo ganha) — desenhe começando fora, ou mova o existente antes
 - Caixa de legenda da página Estrutura não tem limite de altura — legenda de equipamentos + muitas áreas pode estourar a página (cortado pelo `overflow:hidden`)
 - Pinch/touch real validado só por emulação até agora — pendente teste de campo no celular (via Firebase Hosting)
@@ -146,4 +154,5 @@ state = {
 - `js/main.js` — ponto de entrada: importa os módulos, expõe funções no `window` e inicia a renderização
 - `js/tabs/` — um módulo por aba da sidebar (Dados do Projeto, Objetivo, Estrutura, Planta, Equipamentos, Premissas, Gerar Proposta), com o template e as funções de cada aba
 - `js/tabs/areas.js` — demarcadores de área da aba Planta (paleta, desenho clica-e-arrasta, mover/redimensionar, linhas da lista); `planta.js` delega para cá
+- `test-harness.html` — página de teste headless (abre em `/test-harness.html`, roda asserções do fluxo multi-planta direto no browser e imprime PASS/FAIL num `<pre>`; verificada via Chrome headless `--dump-dom`). Ampliar quando novos fluxos críticos surgirem
 - `CLAUDE.md` — este arquivo

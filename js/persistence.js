@@ -28,7 +28,7 @@ export function importarProjetoFile(e){
         delete loaded.planta;
       }
       if(!Array.isArray(loaded.plantas) || loaded.plantas.length===0) loaded.plantas = [novaPlanta('Planta 1')];
-      loaded.plantaAtiva = Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1);
+      loaded.plantaAtiva = Math.max(0, Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1));
       loaded.plantas.forEach((pl,i)=>{
         if(!pl.nome) pl.nome = 'Planta '+(i+1);
         if(pl.zoom===undefined) pl.zoom = 100;
