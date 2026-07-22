@@ -23,7 +23,7 @@ export function tplPlanta(){
         ${state.plantas.length>1 ? `<button class="btn danger small" onclick="removePlanta(${state.plantaAtiva})">Excluir planta</button>` : ''}
       </div>
       <label>Planta baixa (imagem ou PDF)</label>
-      <input type="file" accept="image/*,application/pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
+      <input type="file" accept="image/*,application/pdf,.pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
       <div class="hint">PDF com mais de uma página: você escolhe qual usar.</div>
       <div class="toolbar-types">
         ${EQUIP_TYPES.map(t=>`
