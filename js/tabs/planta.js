@@ -3,6 +3,7 @@ import { EQUIP_TYPES, ICONS } from '../constants.js';
 import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
+import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
 
 export function tplPlanta(){
   const pl = state.planta;
@@ -21,8 +22,9 @@ export function tplPlanta(){
         <input type="text" style="width:220px;margin:0;" value="${pl.nome||''}" oninput="state.plantas[${state.plantaAtiva}].nome=this.value" onchange="renderContent()">
         ${state.plantas.length>1 ? `<button class="btn danger small" onclick="removePlanta(${state.plantaAtiva})">Excluir planta</button>` : ''}
       </div>
-      <label>Planta baixa (imagem)</label>
-      <input type="file" accept="image/*" onchange="handlePlantaUpload(event)" style="margin-bottom:16px;">
+      <label>Planta baixa (imagem ou PDF)</label>
+      <input type="file" accept="image/*,application/pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
+      <div class="hint">PDF com mais de uma página: você escolhe qual usar.</div>
       <div class="toolbar-types">
         ${EQUIP_TYPES.map(t=>`
           <button class="type-btn ${pl.selectedTipo===t.id?'active':''}" onclick="selectTipo('${t.id}')">
@@ -404,6 +406,7 @@ export function removePin(pi){ state.planta.pins.splice(pi,1); renderContent(); 
 
 export async function handlePlantaUpload(e){
   const f = e.target.files[0]; if(!f) return;
+  if(isPdfFile(f)){ await handlePlantaPdfUpload(f); e.target.value=''; return; }
   state.planta.imagem = await fileToDataURL(f);
   state.planta.pins = [];
   state.planta.cercas = [];
