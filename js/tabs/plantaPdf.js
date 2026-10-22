@@ -6,8 +6,10 @@ const TARGET_MAX_DIM = 2000; // px, lado maior da planta final
 const THUMB_MAX_DIM  = 220;  // px, lado maior das miniaturas do seletor
 const MIN_SCALE = 0.2, MAX_SCALE = 6;
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+if(window.pdfjsLib){
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 
 export function isPdfFile(file){
   return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
@@ -77,10 +79,14 @@ async function openPagePicker(pdfDoc){
 }
 
 export async function handlePlantaPdfUpload(file){
+  if(!window.pdfjsLib){
+    showToast('Não foi possível carregar o leitor de PDF. Verifique a conexão e recarregue a página.');
+    return;
+  }
   let pdfDoc;
   try{
     const buf = await file.arrayBuffer();
-    pdfDoc = await pdfjsLib.getDocument({data: buf}).promise;
+    pdfDoc = await window.pdfjsLib.getDocument({data: buf}).promise;
   } catch(err){
     showToast('Não foi possível abrir o PDF. Verifique se o arquivo não está corrompido ou protegido por senha.');
     console.error(err);

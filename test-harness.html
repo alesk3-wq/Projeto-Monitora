@@ -11,7 +11,7 @@
 <script type="module">
 import './js/main.js';
 const out = [];
-function assert(nome, cond){ out.push(`${cond?'PASS':'FAIL'} :: ${nome}`); }
+function assert(nome, cond){ out.push(`${cond?'PASS':'FAIL'} :: ${nome}`); document.getElementById('test-out').textContent = 'PARCIAL\n' + out.join('\n'); }
 try{
   const { state } = await import('./js/state.js');
   const v = await import('./js/validacao.js');
@@ -77,6 +77,54 @@ try{
   window.switchTab('planta');
   const nums2 = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
   assert('após excluir planta 2, planta 1 numera 1..3', nums2[0]==='1' && nums2[2]==='3');
+
+  // ---- Rolagem estável / planta larga ----
+  const frame = ()=>new Promise(r=>{ requestAnimationFrame(()=>r()); setTimeout(r, 50); });
+  const waitImg = async ()=>{
+    const im = document.getElementById('plantaImg');
+    if(im && !im.complete) await new Promise(r=>{ im.addEventListener('load', r, {once:true}); im.addEventListener('error', r, {once:true}); });
+    await frame(); await frame();
+  };
+  const cv = document.createElement('canvas'); cv.width = 2000; cv.height = 2000;
+  const cx = cv.getContext('2d'); cx.fillStyle = '#ddd'; cx.fillRect(0,0,2000,2000);
+  const bigImg = cv.toDataURL('image/png');
+  const near = (a,b,t=2)=>Math.abs(a-b)<=t;
+
+  state.plantaAtiva = 0;
+  state.planta.imagem = bigImg; state.planta.zoom = 200; state.planta.pins = [];
+  window.switchTab('planta'); await waitImg();
+  let sc = document.getElementById('plantaScroll');
+  sc.scrollLeft = 500; sc.scrollTop = 400;
+  window.selectTipo('dome'); await waitImg();
+  sc = document.getElementById('plantaScroll');
+  assert('rolagem preservada ao adicionar pin', near(sc.scrollLeft,500) && near(sc.scrollTop,400));
+
+  window.addPlanta(); await frame();
+  state.plantas[1].imagem = bigImg; state.plantas[1].zoom = 200;
+  window.selectPlanta(0); await waitImg();
+  sc = document.getElementById('plantaScroll');
+  sc.scrollLeft = 500; sc.scrollTop = 400;
+  window.selectPlanta(1); await waitImg();
+  sc = document.getElementById('plantaScroll');
+  assert('rolagem zera ao trocar de planta', sc.scrollLeft===0 && sc.scrollTop===0);
+  window.selectPlanta(0); await waitImg();
+
+  sc = document.getElementById('plantaScroll');
+  sc.scrollLeft = 500; sc.scrollTop = 400;
+  let wrap = document.getElementById('plantaWrap');
+  const fx0 = (sc.scrollLeft + sc.clientWidth/2)/wrap.offsetWidth;
+  const fy0 = (sc.scrollTop + sc.clientHeight/2)/wrap.offsetHeight;
+  window.zoomPlanta(20); await waitImg();
+  sc = document.getElementById('plantaScroll'); wrap = document.getElementById('plantaWrap');
+  const fx1 = (sc.scrollLeft + sc.clientWidth/2)/wrap.offsetWidth;
+  const fy1 = (sc.scrollTop + sc.clientHeight/2)/wrap.offsetHeight;
+  assert('zoom ancora no centro', Math.abs(fx1-fx0)<0.01 && Math.abs(fy1-fy0)<0.01);
+
+  window.switchTab('planta');
+  const wideP = document.getElementById('content').classList.contains('wide');
+  window.switchTab('projeto');
+  const wideJ = document.getElementById('content').classList.contains('wide');
+  assert('content largo só na Planta', wideP && !wideJ);
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }

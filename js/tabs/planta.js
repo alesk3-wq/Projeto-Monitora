@@ -387,12 +387,32 @@ export function syncPinRowControls(){
   });
 }
 
-export function zoomPlanta(delta){
-  const z = (state.planta.zoom||100) + delta;
-  state.planta.zoom = Math.min(400, Math.max(60, z));
+function aplicarZoomAncorado(novoZoom){
+  const sc = document.getElementById('plantaScroll');
+  const wrap = document.getElementById('plantaWrap');
+  let fx = 0.5, fy = 0.5;
+  if(sc && wrap && wrap.offsetWidth && wrap.offsetHeight){
+    fx = (sc.scrollLeft + sc.clientWidth/2)/wrap.offsetWidth;
+    fy = (sc.scrollTop + sc.clientHeight/2)/wrap.offsetHeight;
+  }
+  state.planta.zoom = novoZoom;
   renderContent();
+  if(!wrap) return;
+  const aplicar = ()=>{
+    const s2 = document.getElementById('plantaScroll');
+    const w2 = document.getElementById('plantaWrap');
+    if(!s2 || !w2) return;
+    s2.scrollLeft = fx*w2.offsetWidth - s2.clientWidth/2;
+    s2.scrollTop = fy*w2.offsetHeight - s2.clientHeight/2;
+  };
+  aplicar();
+  const img = document.getElementById('plantaImg');
+  if(img && !img.complete) img.addEventListener('load', aplicar, {once:true});
 }
-export function resetZoom(){ state.planta.zoom = 100; renderContent(); }
+export function zoomPlanta(delta){
+  aplicarZoomAncorado(Math.min(400, Math.max(60, (state.planta.zoom||100) + delta)));
+}
+export function resetZoom(){ aplicarZoomAncorado(100); }
 export function liveUpdateCone(pi, deg){
   state.planta.pins[pi].direcao = parseInt(deg);
   const el = document.getElementById('cone-'+pi);

@@ -1,4 +1,5 @@
 import { TABS } from './constants.js';
+import { state } from './state.js';
 import { tplProjeto } from './tabs/projeto.js';
 import { tplObjetivo } from './tabs/objetivo.js';
 import { tplEstrutura } from './tabs/estrutura.js';
@@ -37,13 +38,34 @@ export function toggleHiddenMenu(){
   document.getElementById('sidebar-footer').classList.toggle('open');
 }
 
+let lastRenderTab = null, lastRenderPlanta = -1;
+
 export function renderContent(){
   const c = document.getElementById('content');
+  // Rolagem só é preservada ao re-renderizar a MESMA planta da aba Planta
+  let keep = null;
+  if(currentTab==='planta' && lastRenderTab==='planta' && lastRenderPlanta===state.plantaAtiva){
+    const sc = document.getElementById('plantaScroll');
+    if(sc) keep = {l:sc.scrollLeft, t:sc.scrollTop, y:window.scrollY};
+  }
+  c.classList.toggle('wide', currentTab==='planta');
   if(currentTab==='projeto') c.innerHTML = tplProjeto();
   else if(currentTab==='objetivo') c.innerHTML = tplObjetivo();
   else if(currentTab==='estrutura') c.innerHTML = tplEstrutura();
-  else if(currentTab==='planta') { c.innerHTML = tplPlanta(); afterPlantaRender(); }
+  else if(currentTab==='planta') { c.innerHTML = tplPlanta(); afterPlantaRender(); if(keep) restaurarRolagem(keep); }
   else if(currentTab==='equipamentos') { c.innerHTML = tplEquipamentos(); afterEquipamentosRender(); }
   else if(currentTab==='premissas') c.innerHTML = tplPremissas();
   else if(currentTab==='gerar') c.innerHTML = tplGerar();
+  lastRenderTab = currentTab; lastRenderPlanta = state.plantaAtiva;
+}
+
+function restaurarRolagem(k){
+  const aplicar = ()=>{
+    const sc = document.getElementById('plantaScroll');
+    if(sc){ sc.scrollLeft = k.l; sc.scrollTop = k.t; }
+    window.scrollTo(window.scrollX, k.y);
+  };
+  aplicar();
+  const img = document.getElementById('plantaImg');
+  if(img && !img.complete) img.addEventListener('load', aplicar, {once:true});
 }
