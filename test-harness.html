@@ -71,6 +71,18 @@ try{
   if(antigo.planta && !antigo.plantas){ antigo.plantas=[antigo.planta]; delete antigo.planta; }
   assert('migração de .json antigo', antigo.plantas.length===1 && antigo.plantas[0].pins.length===1);
 
+  // 9b. sensor de abertura de porta
+  const C = await import('./js/constants.js');
+  window.switchTab('planta');
+  assert('sensor na toolbar', [...document.querySelectorAll('.type-btn')].some(b=>b.textContent.includes('Sensor de Abertura de Porta')));
+  const iSens = C.EQUIP_TYPES.findIndex(t=>t.id==='sensor_porta'), iOutro = C.EQUIP_TYPES.findIndex(t=>t.id==='outro');
+  assert('sensor antes de Outro', iSens>=0 && iSens===iOutro-1);
+  const nGrp = state.estrutura.length, nPins = state.plantas[0].pins.length;
+  state.plantas[0].pins.push({tipoId:'sensor_porta', label:'Sensor de Abertura de Porta', qtd:1, x:5, y:5});
+  window.importFromPlanta();
+  assert('sensor gera item na Estrutura', state.estrutura.some(g=>g.itens.some(i=>i.nome.includes('Sensor de Abertura de Porta — Ponto'))));
+  state.plantas[0].pins.length = nPins; state.estrutura.length = nGrp;
+
   // 10. remover a planta 2 renumera
   state.plantaAtiva = 1;
   state.plantas.splice(1,1); state.plantaAtiva = 0;
