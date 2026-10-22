@@ -132,9 +132,9 @@
   .etq-line{position:absolute;height:2px;background:#333;border-radius:1px;transform-origin:0 1px;pointer-events:none;z-index:6;}
   .etq-arrow{position:absolute;width:0;height:0;transform-origin:50% 100%;pointer-events:none;z-index:6;}
   .etq-box{position:absolute;width:max-content;max-width:180px;background:#FFF4C2;border:1.5px solid #E0A800;border-radius:4px;color:#222;font-size:12px;line-height:1.3;padding:4px 8px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:grab;touch-action:none;z-index:7;box-sizing:border-box;}
-  .etq-tip{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%);background:#fff;border:2.5px solid #333;border-radius:50%;box-sizing:border-box;cursor:grab;touch-action:none;z-index:8;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .etq-tip{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);background:transparent;border:2px solid rgba(51,51,51,.55);border-radius:50%;box-sizing:border-box;cursor:grab;touch-action:none;z-index:8;}
   @media (pointer: coarse){
-    .etq-tip{width:24px;height:24px;}
+    .etq-tip{width:36px;height:36px;}
   }
   .planta-tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;border-bottom:2px solid #E3E8EF;padding-bottom:0;}
   .planta-tab{border:1px solid #D6DDE7;border-bottom:none;background:#F4F6F9;color:var(--text-mid);border-radius:8px 8px 0 0;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}

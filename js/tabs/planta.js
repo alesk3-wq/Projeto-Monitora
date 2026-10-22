@@ -4,7 +4,7 @@ import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
-import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, ETQ_COR } from './etiquetas.js';
+import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, encaixarEtiqueta, ETQ_COR } from './etiquetas.js';
 
 export function tplPlanta(){
   const pl = state.planta;
@@ -235,6 +235,7 @@ export function afterPlantaRender(){
       if(state.planta.selectedTipo==='etiqueta'){
         state.planta.etiquetas.push(novaEtiqueta(x, y));
         renderContent();
+        encaixarEtiqueta(state.planta.etiquetas.length-1);
         const inp = document.getElementById('etqtxt-'+(state.planta.etiquetas.length-1));
         if(inp){ inp.focus({preventScroll:true}); inp.select(); }
         return;

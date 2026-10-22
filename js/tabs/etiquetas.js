@@ -7,8 +7,9 @@ import { renderContent } from '../nav.js';
 // x,y = canto sup.-esq. da caixa; ax,ay = ponta da seta — tudo em % da imagem.
 
 export const ETQ_COR = '#E0A800';
-const ARROW_LEN = 10;   // px, comprimento da ponta de seta
-const ARROW_HALF = 6;   // px, meia-largura da ponta de seta
+const ARROW_LEN = 12;   // px, comprimento da ponta de seta
+const ARROW_HALF = 7;   // px, meia-largura da ponta de seta
+// (a alça .etq-tip é um anel vazado maior que a seta, centrado na ponta: a seta fica visível dentro dele)
 
 const clamp = (v, a, b)=>Math.max(a, Math.min(b, v));
 
@@ -42,6 +43,25 @@ export function setEtiquetaTexto(i, texto){
   t.texto = texto;
   const box = document.getElementById('etqbox-'+i);
   if(box){ box.textContent = texto; updateEtiquetaDOM(i); }
+}
+
+// Mantém a caixa inteira dentro da imagem (medindo a caixa já renderizada).
+// Sem medida disponível (imagem ainda sem tamanho), cai no clamp 0–95.
+function clampCaixa(t, box, W, H){
+  const maxX = (W && box) ? Math.max(0, 100 - box.offsetWidth/W*100) : 95;
+  const maxY = (H && box) ? Math.max(0, 100 - box.offsetHeight/H*100) : 95;
+  t.x = clamp(t.x, 0, maxX);
+  t.y = clamp(t.y, 0, maxY);
+}
+
+// Encaixa a caixa da etiqueta i dentro da imagem (usado logo após criar)
+export function encaixarEtiqueta(i){
+  const t = state.planta.etiquetas[i];
+  const wrap = document.getElementById('plantaWrap');
+  const box = document.getElementById('etqbox-'+i);
+  if(!t || !wrap || !box || !wrap.offsetWidth || !wrap.offsetHeight) return;
+  clampCaixa(t, box, wrap.offsetWidth, wrap.offsetHeight);
+  updateEtiquetaDOM(i);
 }
 
 export function removeEtiqueta(i){ state.planta.etiquetas.splice(i,1); renderContent(); }
@@ -148,8 +168,10 @@ function onEtqPointerMove(e){
   if(!t || !document.getElementById('plantaImg')) return;
   const p = pctPoint(e);
   if(etqDrag.alvo==='box'){
-    t.x = clamp(p.x - etqDrag.offX, 0, 100);
-    t.y = clamp(p.y - etqDrag.offY, 0, 100);
+    t.x = p.x - etqDrag.offX;
+    t.y = p.y - etqDrag.offY;
+    const wrap = document.getElementById('plantaWrap');
+    clampCaixa(t, document.getElementById('etqbox-'+etqDrag.index), wrap?.offsetWidth, wrap?.offsetHeight);
   } else {
     t.ax = clamp(p.x, 0, 100);
     t.ay = clamp(p.y, 0, 100);

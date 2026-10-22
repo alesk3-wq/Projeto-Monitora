@@ -146,6 +146,27 @@ try{
     const g = E.etqGeom(10,10,100,40, 60,30);
     assert('ponta sobre a caixa', [g.x1,g.y1,g.len,g.ang].every(Number.isFinite) && g.len===0);
 
+    // caixa nasce dentro da imagem mesmo clicando na borda direita/topo; seta visível sob o anel
+    window.switchTab('planta'); await waitImg();
+    const im2 = document.getElementById('plantaImg'), r2 = im2.getBoundingClientRect();
+    im2.dispatchEvent(new MouseEvent('click', {bubbles:true, clientX:r2.right-2, clientY:r2.top+2}));
+    await frame();
+    const iN = state.planta.etiquetas.length-1, eN = state.planta.etiquetas[iN];
+    let wN = document.getElementById('plantaWrap'), bN = document.getElementById('etqbox-'+iN);
+    const nasceuDentro = eN.x + bN.offsetWidth/wN.offsetWidth*100 <= 100.01;
+    // arrasta a caixa (texto longo) muito além da borda inferior-direita
+    eN.texto = 'Texto bem longo para a caixa ficar larga e alta '.repeat(3);
+    window.renderContent(); await frame();
+    wN = document.getElementById('plantaWrap'); bN = document.getElementById('etqbox-'+iN);
+    const rb = bN.getBoundingClientRect();
+    bN.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, isPrimary:true, clientX:rb.left+3, clientY:rb.top+3}));
+    document.dispatchEvent(new PointerEvent('pointermove', {bubbles:true, isPrimary:true, clientX:rb.left+5000, clientY:rb.top+5000}));
+    document.dispatchEvent(new PointerEvent('pointerup', {bubbles:true, isPrimary:true}));
+    await frame();
+    assert('caixa dentro da imagem', nasceuDentro && eN.x + bN.offsetWidth/wN.offsetWidth*100 <= 100.01 && eN.y >= 0 && eN.y + bN.offsetHeight/wN.offsetHeight*100 <= 100.01);
+    const arN = document.getElementById('etqarrow-'+iN), tpN = document.getElementById('etqtip-'+iN);
+    assert('seta visível (anel vazado)', getComputedStyle(arN).display!=='none' && getComputedStyle(tpN).backgroundColor==='rgba(0, 0, 0, 0)');
+
     // limpeza
     state.estrutura.length = nGrpE;
     pl.etiquetas = []; pl.imagem = oldImg; pl.selectedTipo = oldTipo; pl.zoom = oldZoom;
