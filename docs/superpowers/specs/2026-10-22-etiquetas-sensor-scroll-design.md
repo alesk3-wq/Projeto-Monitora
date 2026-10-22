@@ -73,6 +73,19 @@ O texto da etiqueta é livre e com aspas/`<` frequentes ("porta \"fantasma\""). 
 
 ---
 
+## 4. Área da planta aproveitando a tela no PC
+
+### Problema (confirmado com o usuário)
+No PC, a aba Planta fica presa em `#content{max-width:1000px}`: sobra faixa vazia dos lados em monitores largos. E `#plantaScroll{max-height:560px}` limita a altura, então mesmo em tela grande se vê um pedaço pequeno da planta. O usuário quer que a área da planta ocupe a largura e a altura disponíveis no PC.
+
+### Como (decidido — chamadas minhas)
+- **Só na aba Planta** o `#content` perde o `max-width` (ex.: classe `wide` aplicada por `renderContent()` quando a aba é `planta`, removida nas outras). As outras abas (formulários de texto) continuam com 1000px — esticar textareas em 1900px piora a leitura.
+- **Altura do `#plantaScroll` em telas largas** (acima do breakpoint de 1024px já existente): passa a acompanhar a altura da janela — `max-height: max(560px, calc(100vh - 140px))` ou equivalente — para a planta caber na tela sem rolar a página. O builder ajusta o offset para a toolbar de zoom ficar visível junto.
+- **Mobile/tablet (≤1024px):** sem mudança.
+- Nada muda na geração do PDF (as páginas têm tamanho fixo).
+
+---
+
 ## Testes
 - Estender `test-harness.html` com asserções (headless, padrão existente): `sensor_porta` aparece na toolbar; `novaPlanta` tem `etiquetas:[]`; import de `.json` sem `etiquetas` recebe `[]`; criar etiqueta e checar que ela aparece na lista e no DOM da planta e **não** aparece em Estrutura/fichas/contadores; texto com `"` e `<` não quebra a linha da lista; rolagem de `#plantaScroll` preservada após um re-render na mesma planta (setar `scrollLeft/Top`, chamar uma ação que re-renderiza, conferir) e zerada após trocar de planta.
 - Verificação manual do PDF com etiquetas e sensor (gerar e olhar), e smoke em viewport mobile (Chrome headless/emulação).
