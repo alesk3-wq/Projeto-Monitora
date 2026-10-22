@@ -39,12 +39,16 @@ export function toggleHiddenMenu(){
 }
 
 let lastRenderTab = null, lastRenderPlanta = -1;
+// O próximo renderContent() não restaura a rolagem (ex: nova imagem de planta começa do topo)
+let pularRolagem = false;
+export function resetRolagem(){ pularRolagem = true; }
 
 export function renderContent(){
   const c = document.getElementById('content');
   // Rolagem só é preservada ao re-renderizar a MESMA planta da aba Planta
   let keep = null;
-  if(currentTab==='planta' && lastRenderTab==='planta' && lastRenderPlanta===state.plantaAtiva){
+  const pular = pularRolagem; pularRolagem = false;
+  if(!pular && currentTab==='planta' && lastRenderTab==='planta' && lastRenderPlanta===state.plantaAtiva){
     const sc = document.getElementById('plantaScroll');
     if(sc) keep = {l:sc.scrollLeft, t:sc.scrollTop, y:window.scrollY};
   }

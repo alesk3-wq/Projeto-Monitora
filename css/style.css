@@ -132,7 +132,8 @@
   .etq-line{position:absolute;height:2px;background:#333;border-radius:1px;transform-origin:0 1px;pointer-events:none;z-index:6;}
   .etq-arrow{position:absolute;width:0;height:0;transform-origin:50% 100%;pointer-events:none;z-index:6;}
   .etq-box{position:absolute;width:max-content;max-width:180px;background:#FFF4C2;border:1.5px solid #E0A800;border-radius:4px;color:#222;font-size:12px;line-height:1.3;padding:4px 8px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:grab;touch-action:none;z-index:7;box-sizing:border-box;}
-  .etq-tip{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);background:transparent;border:2px solid rgba(51,51,51,.55);border-radius:50%;box-sizing:border-box;cursor:grab;touch-action:none;z-index:8;}
+  .etq-tip{position:absolute;width:28px;height:28px;transform:translate(-50%,-50%);background:transparent;border:2px solid rgba(51,51,51,.55);border-radius:50%;box-sizing:border-box;cursor:grab;touch-action:none;z-index:2;}
+  .etq-tip.etq-tool{z-index:8;}
   @media (pointer: coarse){
     .etq-tip{width:36px;height:36px;}
   }

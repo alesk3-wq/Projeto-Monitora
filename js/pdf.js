@@ -179,7 +179,9 @@ export function etqEstimaCaixa(texto){
 // Etiquetas de anotação (caixa + linha + seta) em px relativos ao retângulo efetivo da imagem.
 // Caixa clampada para ficar inteira dentro da imagem; sem clip-path/SVG (html2canvas).
 export function etiquetasHtml(pl, rect){
-  return (pl.etiquetas||[]).map(t=>{
+  // linhas+setas de todas as etiquetas primeiro, caixas por cima (uma linha não cobre o texto de outra)
+  const linhas = [], caixas = [];
+  (pl.etiquetas||[]).forEach(t=>{
     const {w, h} = etqEstimaCaixa(t.texto);
     const bx = Math.max(rect.x, Math.min(rect.x + (t.x/100)*rect.w, rect.x + rect.w - w));
     const by = Math.max(rect.y, Math.min(rect.y + (t.y/100)*rect.h, rect.y + rect.h - h));
@@ -188,8 +190,9 @@ export function etiquetasHtml(pl, rect){
     const linha = `<div style="position:absolute;left:${g.x1}px;top:${g.y1-1}px;width:${Math.max(0, g.len-12)}px;height:2px;border-radius:1px;background:#333;transform-origin:0 1px;transform:rotate(${g.ang}deg);"></div>`;
     const seta = g.len > 12 ? `<div style="position:absolute;left:${tx}px;top:${ty}px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid #333;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${g.ang-90}deg);"></div>` : '';
     const caixa = `<div class="etq-pdf-box" style="position:absolute;left:${bx}px;top:${by}px;width:${w}px;box-sizing:border-box;background:#FFF4C2;border:1.5px solid ${ETQ_COR};border-radius:4px;color:#222;font-size:12px;line-height:1.3;padding:4px 8px;white-space:pre-wrap;overflow-wrap:anywhere;">${escHtml(t.texto)}</div>`;
-    return linha + seta + caixa;
-  }).join('');
+    linhas.push(linha + seta); caixas.push(caixa);
+  });
+  return linhas.join('') + caixas.join('');
 }
 function pageMapeamento(pl, dims, titulo, off){
   const BOX_W = PW - 128, BOX_H = 770; // container: left/right:64, height:770

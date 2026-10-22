@@ -1,7 +1,7 @@
 import { state, novaPlanta, pinOffsetGlobal } from '../state.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
 import { typeById, fileToDataURL, showToast } from '../utils.js';
-import { renderContent } from '../nav.js';
+import { renderContent, resetRolagem } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
 import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, encaixarEtiqueta, ETQ_COR } from './etiquetas.js';
@@ -448,5 +448,6 @@ export async function handlePlantaUpload(e){
   state.planta.areas = [];
   state.planta.etiquetas = [];
   state.planta.zoom = 100;
+  resetRolagem();
   renderContent();
 }

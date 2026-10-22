@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { showToast } from '../utils.js';
-import { renderContent } from '../nav.js';
+import { renderContent, resetRolagem } from '../nav.js';
 
 const TARGET_MAX_DIM = 2000; // px, lado maior da planta final
 const THUMB_MAX_DIM  = 220;  // px, lado maior das miniaturas do seletor
@@ -40,6 +40,7 @@ async function applyPage(pdfDoc, pageNum){
     state.planta.areas = [];
     state.planta.etiquetas = [];
     state.planta.zoom = 100;
+    resetRolagem();
     renderContent();
     showToast('Planta importada do PDF.');
   } catch(err){

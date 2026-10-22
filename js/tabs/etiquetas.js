@@ -83,7 +83,8 @@ export function renderEtiquetas(wrap){
     box.textContent = t.texto;
     box.onpointerdown = (e)=>startEtqDrag(e, i, 'box');
     const tip = document.createElement('div');
-    tip.className = 'etq-tip'; tip.id = 'etqtip-'+i;
+    // acima dos pins só com a ferramenta Etiqueta; senão abaixo, para o pin ser arrastável
+    tip.className = 'etq-tip' + (state.planta.selectedTipo==='etiqueta' ? ' etq-tool' : ''); tip.id = 'etqtip-'+i;
     tip.title = 'Arraste para mover a ponta da seta';
     tip.onpointerdown = (e)=>startEtqDrag(e, i, 'tip');
     wrap.append(line, arrow, box, tip);
