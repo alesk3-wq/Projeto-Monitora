@@ -1,6 +1,7 @@
 import { state, pinOffsetGlobal } from './state.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
-import { showToast, fmtDate, typeById, areaCatById } from './utils.js';
+import { showToast, fmtDate, typeById, areaCatById, escHtml } from './utils.js';
+import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
 import { exportarProjeto } from './persistence.js';
 import { validarProposta } from './validacao.js';
@@ -160,6 +161,36 @@ function pageEstrutura(){
     ${footerBrand()}
   `);
 }
+// Planta sem nenhum conteúdo (em projetos multi-planta não gera página de Mapeamento)
+export function plantaVazia(pl){
+  return !pl.imagem && !pl.pins.length && !(pl.cercas||[]).length && !(pl.areas||[]).length && !(pl.etiquetas||[]).length;
+}
+// Tamanho estimado (px) da caixa da etiqueta no PDF (a altura real não é medida):
+// fonte 12px, line-height 1.3, padding 4px 8px, borda 1.5px, largura máx. 180px.
+// No PDF a caixa usa largura fixa = estimada, então o clamp horizontal é exato.
+export function etqEstimaCaixa(texto){
+  const linhas = String(texto||'').split('\n');
+  const maxLen = Math.max(1, ...linhas.map(l=>l.length));
+  const w = Math.min(180, Math.ceil(maxLen*6.6 + 19));
+  const porLinha = Math.max(1, Math.floor((w-19)/6.6));
+  const n = linhas.reduce((a,l)=>a+Math.max(1, Math.ceil(l.length/porLinha)), 0);
+  return { w, h: Math.ceil(n*15.6 + 11) };
+}
+// Etiquetas de anotação (caixa + linha + seta) em px relativos ao retângulo efetivo da imagem.
+// Caixa clampada para ficar inteira dentro da imagem; sem clip-path/SVG (html2canvas).
+export function etiquetasHtml(pl, rect){
+  return (pl.etiquetas||[]).map(t=>{
+    const {w, h} = etqEstimaCaixa(t.texto);
+    const bx = Math.max(rect.x, Math.min(rect.x + (t.x/100)*rect.w, rect.x + rect.w - w));
+    const by = Math.max(rect.y, Math.min(rect.y + (t.y/100)*rect.h, rect.y + rect.h - h));
+    const tx = rect.x + (t.ax/100)*rect.w, ty = rect.y + (t.ay/100)*rect.h;
+    const g = etqGeom(bx, by, w, h, tx, ty);
+    const linha = `<div style="position:absolute;left:${g.x1}px;top:${g.y1-1}px;width:${Math.max(0, g.len-12)}px;height:2px;border-radius:1px;background:#333;transform-origin:0 1px;transform:rotate(${g.ang}deg);"></div>`;
+    const seta = g.len > 12 ? `<div style="position:absolute;left:${tx}px;top:${ty}px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid #333;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${g.ang-90}deg);"></div>` : '';
+    const caixa = `<div class="etq-pdf-box" style="position:absolute;left:${bx}px;top:${by}px;width:${w}px;box-sizing:border-box;background:#FFF4C2;border:1.5px solid ${ETQ_COR};border-radius:4px;color:#222;font-size:12px;line-height:1.3;padding:4px 8px;white-space:pre-wrap;overflow-wrap:anywhere;">${escHtml(t.texto)}</div>`;
+    return linha + seta + caixa;
+  }).join('');
+}
 function pageMapeamento(pl, dims, titulo, off){
   const BOX_W = PW - 128, BOX_H = 770; // container: left/right:64, height:770
   const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
@@ -198,6 +229,7 @@ function pageMapeamento(pl, dims, titulo, off){
       ${areasHtml}
       ${cercaHtml}
       ${pinsHtml}
+      ${etiquetasHtml(pl, rect)}
     </div>
     ${footerBrand()}
   `);
@@ -275,7 +307,7 @@ export async function gerarPDF(){
   for(let li=0; li<state.plantas.length; li++){
     const pl = state.plantas[li];
     // Em projetos multi-planta, plantas totalmente vazias não geram página
-    if(multi && !pl.imagem && !pl.pins.length && !(pl.cercas||[]).length && !(pl.areas||[]).length) continue;
+    if(multi && plantaVazia(pl)) continue;
     const dims = await loadImageDims(pl.imagem);
     const titulo = 'Mapeamento' + (multi ? ` — ${pl.nome||('Planta '+(li+1))}` : '');
     mapPages.push(pageMapeamento(pl, dims, titulo, pinOffsetGlobal(li)));

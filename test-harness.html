@@ -173,6 +173,23 @@ try{
     window.switchTab('planta');
   }
 
+  // 9b. etiquetas no PDF (funções puras de pdf.js)
+  {
+    const P = await import('./js/pdf.js');
+    const rect = {x:0,y:0,w:1000,h:500};
+    const html = P.etiquetasHtml({etiquetas:[{texto:'porta "x" <b>', x:20,y:20,ax:40,ay:40}]}, rect);
+    assert('etiqueta no PDF', html.includes('porta &quot;x&quot; &lt;b&gt;') && !html.includes('clip-path') && !html.includes('<svg'));
+    const htmlC = P.etiquetasHtml({etiquetas:[{texto:'dentro', x:20,y:20,ax:22,ay:22}]}, rect);
+    assert('ponta sobre a caixa no PDF', !htmlC.includes('NaN') && !htmlC.includes('Infinity'));
+    const vazia = {imagem:null, pins:[], cercas:[], areas:[], etiquetas:[{texto:'a',x:1,y:1,ax:2,ay:2}]};
+    assert('planta só com etiqueta não é pulada', P.plantaVazia(vazia)===false && P.plantaVazia({...vazia, etiquetas:[]})===true);
+    const rect2 = {x:50,y:30,w:800,h:400};
+    const htmlB = P.etiquetasHtml({etiquetas:[{texto:'canto inferior direito longo '.repeat(3), x:99,y:99,ax:50,ay:50}]}, rect2);
+    const mB = htmlB.match(/etq-pdf-box" style="position:absolute;left:([\d.]+)px;top:([\d.]+)px;width:([\d.]+)px/);
+    const est = P.etqEstimaCaixa('canto inferior direito longo '.repeat(3));
+    assert('caixa clampada dentro da imagem no PDF', !!mB && +mB[1]+est.w <= rect2.x+rect2.w+0.01 && +mB[2]+est.h <= rect2.y+rect2.h+0.01 && +mB[1]>=rect2.x && +mB[2]>=rect2.y);
+  }
+
   // 10. remover a planta 2 renumera
   state.plantaAtiva = 1;
   state.plantas.splice(1,1); state.plantaAtiva = 0;
