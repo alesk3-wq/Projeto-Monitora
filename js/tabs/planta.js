@@ -4,6 +4,7 @@ import { typeById, fileToDataURL, showToast } from '../utils.js';
 import { renderContent } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
+import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, ETQ_COR } from './etiquetas.js';
 
 export function tplPlanta(){
   const pl = state.planta;
@@ -33,6 +34,9 @@ export function tplPlanta(){
         <button class="type-btn ${pl.selectedTipo==='area'?'active':''}" onclick="selectTipo('area')">
           <span class="icon-dot" style="background:#5A6B82">▧</span>Demarcar Área
         </button>
+        <button class="type-btn ${pl.selectedTipo==='etiqueta'?'active':''}" onclick="selectTipo('etiqueta')">
+          <span class="icon-dot" style="background:${ETQ_COR}">🏷</span>Etiqueta
+        </button>
       </div>
       ${pl.imagem ? `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
@@ -60,7 +64,7 @@ export function tplPlanta(){
           : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
       </div>
       <div class="pinlist">
-        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
+        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
             <b style="font-size:12px;color:var(--text-mid);width:18px;">${off+pi+1}</b>
@@ -82,6 +86,7 @@ export function tplPlanta(){
             <button class="btn danger small" onclick="removeCerca(${ci})">✕</button>
           </div>`).join('')}
         ${tplAreaRows()}
+        ${tplEtiquetaRows()}
       </div>
     </div>
   `;
@@ -108,7 +113,7 @@ export function addPlanta(){
 export function removePlanta(i){
   const pt = state.plantas[i];
   if(!pt) return;
-  const temConteudo = pt.imagem || pt.pins.length || pt.cercas.length || pt.areas.length;
+  const temConteudo = pt.imagem || pt.pins.length || pt.cercas.length || pt.areas.length || pt.etiquetas.length;
   if(temConteudo && !confirm(`Excluir a planta "${pt.nome||('Planta '+(i+1))}" e tudo que está nela?`)) return;
   cancelarTraco();
   state.plantas.splice(i,1);
@@ -148,7 +153,7 @@ function attachPinchZoom(){
   if(!scroll || !wrap) return;
   scroll.addEventListener('touchstart', (e)=>{
     if(e.touches.length===2) cancelAreaDraw();
-    if(dragState || areaDragAtivo()) return;
+    if(dragState || areaDragAtivo() || etiquetaDragAtivo()) return;
     if(e.touches.length===2){
       pinch = {
         dist: touchDist(e) || 1,
@@ -222,10 +227,18 @@ export function afterPlantaRender(){
   if(img){
     img.onclick = (e)=>{
       if(suppressNextClick){ suppressNextClick = false; return; }
+      if(etiquetaSuprimeClique()) return;
       if(state.planta.selectedTipo==='area') return;
       const rect = img.getBoundingClientRect();
       const x = ((e.clientX-rect.left)/rect.width)*100;
       const y = ((e.clientY-rect.top)/rect.height)*100;
+      if(state.planta.selectedTipo==='etiqueta'){
+        state.planta.etiquetas.push(novaEtiqueta(x, y));
+        renderContent();
+        const inp = document.getElementById('etqtxt-'+(state.planta.etiquetas.length-1));
+        if(inp){ inp.focus({preventScroll:true}); inp.select(); }
+        return;
+      }
       if(state.planta.selectedTipo==='cerca'){
         tracoAtual = tracoAtual || [];
         tracoAtual.push({x, y});
@@ -278,6 +291,7 @@ export function afterPlantaRender(){
     });
     renderCercas(wrap);
     renderAreas(wrap);
+    renderEtiquetas(wrap);
     if(img && !img.complete){
       img.addEventListener('load', ()=>{
         const w = document.getElementById('plantaWrap');
@@ -431,6 +445,7 @@ export async function handlePlantaUpload(e){
   state.planta.pins = [];
   state.planta.cercas = [];
   state.planta.areas = [];
+  state.planta.etiquetas = [];
   state.planta.zoom = 100;
   renderContent();
 }

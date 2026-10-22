@@ -16,28 +16,34 @@ export function exportarProjeto(){
   showToast('Projeto exportado. Envie o arquivo .json para seu colega.');
 }
 
+// Normaliza um projeto lido de .json (migração + defaults). Muta e devolve o objeto.
+export function normalizarProjeto(loaded){
+  // Migração: .json antigos têm 'planta' (singular) em vez de 'plantas'
+  if(loaded.planta && !loaded.plantas){
+    loaded.plantas = [loaded.planta];
+    delete loaded.planta;
+  }
+  if(!Array.isArray(loaded.plantas) || loaded.plantas.length===0) loaded.plantas = [novaPlanta('Planta 1')];
+  loaded.plantaAtiva = Math.max(0, Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1));
+  loaded.plantas.forEach((pl,i)=>{
+    if(!pl.nome) pl.nome = 'Planta '+(i+1);
+    if(pl.zoom===undefined) pl.zoom = 100;
+    if(!pl.pins) pl.pins = [];
+    if(!pl.cercas) pl.cercas = [];
+    if(!pl.areas) pl.areas = [];
+    if(!pl.etiquetas) pl.etiquetas = [];
+    if(!pl.selectedTipo) pl.selectedTipo = 'bullet';
+    if(!pl.selectedAreaCat) pl.selectedAreaCat = 'area1';
+  });
+  return loaded;
+}
+
 export function importarProjetoFile(e){
   const f = e.target.files[0]; if(!f) return;
   const reader = new FileReader();
   reader.onload = (ev)=>{
     try{
-      const loaded = JSON.parse(ev.target.result);
-      // Migração: .json antigos têm 'planta' (singular) em vez de 'plantas'
-      if(loaded.planta && !loaded.plantas){
-        loaded.plantas = [loaded.planta];
-        delete loaded.planta;
-      }
-      if(!Array.isArray(loaded.plantas) || loaded.plantas.length===0) loaded.plantas = [novaPlanta('Planta 1')];
-      loaded.plantaAtiva = Math.max(0, Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1));
-      loaded.plantas.forEach((pl,i)=>{
-        if(!pl.nome) pl.nome = 'Planta '+(i+1);
-        if(pl.zoom===undefined) pl.zoom = 100;
-        if(!pl.pins) pl.pins = [];
-        if(!pl.cercas) pl.cercas = [];
-        if(!pl.areas) pl.areas = [];
-        if(!pl.selectedTipo) pl.selectedTipo = 'bullet';
-        if(!pl.selectedAreaCat) pl.selectedAreaCat = 'area1';
-      });
+      const loaded = normalizarProjeto(JSON.parse(ev.target.result));
       setState(loaded);
       attachPlantaAlias(state);
       switchTab('projeto');

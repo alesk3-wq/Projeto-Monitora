@@ -34,3 +34,9 @@ export function fmtDate(iso){
 export function defaultCropFrac(naturalWidth){
   return Math.min(0.50, Math.max(0.15, 800/naturalWidth));
 }
+
+// Escapa texto livre para interpolar em HTML/atributos (usado pelas etiquetas)
+export function escHtml(s){
+  if(s===null || s===undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}

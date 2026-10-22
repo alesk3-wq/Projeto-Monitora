@@ -83,14 +83,7 @@ try{
   assert('sensor gera item na Estrutura', state.estrutura.some(g=>g.itens.some(i=>i.nome.includes('Sensor de Abertura de Porta — Ponto'))));
   state.plantas[0].pins.length = nPins; state.estrutura.length = nGrp;
 
-  // 10. remover a planta 2 renumera
-  state.plantaAtiva = 1;
-  state.plantas.splice(1,1); state.plantaAtiva = 0;
-  window.switchTab('planta');
-  const nums2 = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
-  assert('após excluir planta 2, planta 1 numera 1..3', nums2[0]==='1' && nums2[2]==='3');
-
-  // ---- Rolagem estável / planta larga ----
+  // ---- helpers async (usados daqui em diante) ----
   const frame = ()=>new Promise(r=>{ requestAnimationFrame(()=>r()); setTimeout(r, 50); });
   const waitImg = async ()=>{
     const im = document.getElementById('plantaImg');
@@ -102,6 +95,71 @@ try{
   const bigImg = cv.toDataURL('image/png');
   const near = (a,b,t=2)=>Math.abs(a-b)<=t;
 
+  // 9c. etiquetas
+  {
+    const S = await import('./js/state.js');
+    const U = await import('./js/utils.js');
+    const P = await import('./js/persistence.js');
+    const E = await import('./js/tabs/etiquetas.js');
+    const np = S.novaPlanta('X');
+    assert('novaPlanta tem etiquetas', Array.isArray(np.etiquetas) && np.etiquetas.length===0);
+    assert('escHtml', U.escHtml('a"<b>&\'')==='a&quot;&lt;b&gt;&amp;&#39;' && U.escHtml(null)==='' && U.escHtml(undefined)==='');
+    const norm = P.normalizarProjeto({plantas:[{pins:[]}]});
+    assert('import sem etiquetas', Array.isArray(norm.plantas[0].etiquetas) && norm.plantas[0].etiquetas.length===0);
+
+    const totalPins = state.plantas.reduce((s,pl)=>s+pl.pins.length,0);
+    window.switchTab('equipamentos');
+    const nFichas0 = document.querySelectorAll('#content .card').length;
+    const pl = state.planta;
+    const oldImg = pl.imagem, oldTipo = pl.selectedTipo, oldZoom = pl.zoom, nGrpE = state.estrutura.length, nPinsE = pl.pins.length;
+    pl.imagem = bigImg; pl.zoom = 100;
+    window.switchTab('planta'); await waitImg();
+    window.selectTipo('etiqueta'); await waitImg();
+    const btnEtq = [...document.querySelectorAll('.type-btn')].find(b=>b.textContent.includes('Etiqueta'));
+    assert('botão Etiqueta na toolbar', !!btnEtq && btnEtq.classList.contains('active'));
+
+    const im = document.getElementById('plantaImg');
+    const r = im.getBoundingClientRect();
+    im.dispatchEvent(new MouseEvent('click', {bubbles:true, clientX:r.left+r.width/2, clientY:r.top+r.height/2}));
+    await frame();
+    const e0 = state.planta.etiquetas[0];
+    assert('clique cria etiqueta', state.planta.etiquetas.length===1 && state.planta.pins.length===nPinsE
+      && e0 && near(e0.ax,50,1) && near(e0.ay,50,1) && e0.texto==='Nova etiqueta'
+      && document.activeElement && document.activeElement.id==='etqtxt-0');
+    const boxes = document.querySelectorAll('#plantaWrap .etq-box');
+    assert('etiqueta renderiza', boxes.length===1 && boxes[0].textContent==='Nova etiqueta' && document.querySelectorAll('#plantaWrap .etq-tip').length===1);
+
+    const perigoso = 'porta "fantasma" <x>';
+    state.planta.etiquetas[0].texto = perigoso;
+    window.renderContent(); await frame();
+    assert('texto perigoso não quebra', document.getElementById('etqtxt-0')?.value===perigoso
+      && document.querySelector('#plantaWrap .etq-box')?.textContent===perigoso);
+
+    window.importFromPlanta();
+    const vazou = state.estrutura.some(g=>g.itens.some(i=>/Nova etiqueta|fantasma/.test(i.nome+' '+(i.desc||''))));
+    window.switchTab('gerar');
+    const statsE = [...document.querySelectorAll('.stat .n')].map(e=>e.textContent);
+    window.switchTab('equipamentos');
+    const nFichas1 = document.querySelectorAll('#content .card').length;
+    assert('etiqueta não vira equipamento', !vazou && statsE[2]===String(totalPins) && nFichas1===nFichas0);
+
+    const g = E.etqGeom(10,10,100,40, 60,30);
+    assert('ponta sobre a caixa', [g.x1,g.y1,g.len,g.ang].every(Number.isFinite) && g.len===0);
+
+    // limpeza
+    state.estrutura.length = nGrpE;
+    pl.etiquetas = []; pl.imagem = oldImg; pl.selectedTipo = oldTipo; pl.zoom = oldZoom;
+    window.switchTab('planta');
+  }
+
+  // 10. remover a planta 2 renumera
+  state.plantaAtiva = 1;
+  state.plantas.splice(1,1); state.plantaAtiva = 0;
+  window.switchTab('planta');
+  const nums2 = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
+  assert('após excluir planta 2, planta 1 numera 1..3', nums2[0]==='1' && nums2[2]==='3');
+
+  // ---- Rolagem estável / planta larga ----
   state.plantaAtiva = 0;
   state.planta.imagem = bigImg; state.planta.zoom = 200; state.planta.pins = [];
   window.switchTab('planta'); await waitImg();

@@ -1,7 +1,7 @@
 import { todayISO } from './utils.js';
 
 export function novaPlanta(nome){
-  return { nome, imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[], areas:[], selectedAreaCat:'area1' };
+  return { nome, imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[], areas:[], etiquetas:[], selectedAreaCat:'area1' };
 }
 
 // Alias vivo: state.planta → planta ativa (state.plantas[state.plantaAtiva]).

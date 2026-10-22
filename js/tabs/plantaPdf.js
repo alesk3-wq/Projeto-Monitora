@@ -38,6 +38,7 @@ async function applyPage(pdfDoc, pageNum){
     state.planta.pins = [];
     state.planta.cercas = [];
     state.planta.areas = [];
+    state.planta.etiquetas = [];
     state.planta.zoom = 100;
     renderContent();
     showToast('Planta importada do PDF.');
