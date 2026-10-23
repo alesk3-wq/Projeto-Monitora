@@ -355,6 +355,28 @@ try{
     window.switchTab('planta');
   }
 
+  // 9d. legenda da página Estrutura = resumo por tipo do projeto inteiro
+  {
+    const PDL = await import('./js/pdf.js');
+    const S = await import('./js/state.js');
+    const salvo = state.plantas;
+    const a = S.novaPlanta('A'), b = S.novaPlanta('B');
+    const mk = (id,t,l,q=1)=>({id, tipoId:t, label:l, qtd:q, x:5, y:5, direcao:0});
+    a.pins.push(mk('l1','bullet','Portaria'), mk('l2','dome','Pátio'), mk('l3','bullet','Doca',2));
+    b.pins.push(mk('l4','bullet','Galpão'));
+    a.cercas.push({id:'lc1', label:'Muro', pontos:[{x:1,y:1},{x:2,y:2}]});
+    b.cercas.push({id:'lc2', label:'Muro 2', pontos:[{x:1,y:1},{x:2,y:2}]});
+    a.areas.push({catId:'area1', descricao:'Oficina', x:1, y:1, w:5, h:5});
+    state.plantas = [a, b];
+    const r = PDL.legendaResumo();
+    assert('legenda: uma linha por tipo, soma qtd, cerca conta trechos',
+      JSON.stringify(r)===JSON.stringify([{tipoId:'bullet',qtd:4},{tipoId:'dome',qtd:1},{tipoId:'cerca',qtd:2}]));
+    const leg = PDL.pageEstrutura().split('Legenda')[1] || '';
+    assert('legenda no PDF: "04x — Câmera Bullet" e sem rótulo de pin', leg.includes('04x — Câmera Bullet') && leg.includes('01x — Câmera Dome') && leg.includes('02x — Cerca / Concertina') && !leg.includes('Portaria'));
+    assert('legenda no PDF: área com nome da planta (multi)', leg.includes('A — Área 1') && leg.includes('Oficina'));
+    state.plantas = salvo;
+  }
+
   // 10. remover a planta 2 renumera
   state.plantaAtiva = 1;
   state.plantas.splice(1,1); state.plantaAtiva = 0;

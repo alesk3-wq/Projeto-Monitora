@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { numeroDoPin, pontosPorTipo } from './numeracao.js';
+import { numeroDoPin, pontosPorTipo, trechosCerca } from './numeracao.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById, escHtml } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
@@ -106,18 +106,16 @@ function pinsGlobais(){
   pontosPorTipo().forEach(g=>g.pontos.forEach(pt=>out.push({p:pt.pin, pl:state.plantas[pt.plantaIdx], li:pt.plantaIdx, pi:pt.pinIdx, numero:pt.numero})));
   return out;
 }
-function equipamentoLegend(pl){
-  const map = {};
-  pl.pins.forEach(p=>{
-    const key = p.tipoId+'|'+p.label;
-    if(!map[key]) map[key] = {tipoId:p.tipoId, label:p.label, qtd:0};
-    map[key].qtd += (parseInt(p.qtd)||1);
-  });
-  const legend = Object.values(map);
-  (pl.cercas||[]).forEach(c=>{
-    legend.push({tipoId:'cerca', label:c.label, qtd:1});
-  });
-  return legend;
+// Legenda da página Estrutura: resumo do projeto inteiro, uma linha por tipo
+// (NN = soma de qtd, ordem de EQUIP_TYPES); cercas contam os trechos traçados.
+export function legendaResumo(){
+  const out = pontosPorTipo().map(g=>({
+    tipoId: g.tipo.id,
+    qtd: g.pontos.reduce((s,pt)=>s+(parseInt(pt.pin.qtd)||1), 0),
+  }));
+  const nTrechos = trechosCerca().length;
+  if(nTrechos) out.push({tipoId:'cerca', qtd:nTrechos});
+  return out;
 }
 // Grupos gerados (por tipo, vivos) no lugar da entrada {gerado:true} da Estrutura
 function estruturaGeradaHtml(){
@@ -135,28 +133,24 @@ function estruturaGeradaHtml(){
 }
 export function pageEstrutura(){
   const multi = state.plantas.length > 1;
-  const blocos = state.plantas.map((pl,li)=>{
-    const legend = equipamentoLegend(pl);
-    const areas = pl.areas||[];
-    if(legend.length===0 && areas.length===0) return '';
-    return `
-      ${multi ? `<div style="font-weight:800;color:${BRAND.corSecundaria};font-size:13.5px;margin:${li>0?'16px':'0'} 0 10px;text-transform:uppercase;letter-spacing:.4px;">${pl.nome||('Planta '+(li+1))}</div>` : ''}
-      ${legend.map(l=>`
-        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;">
-          <div style="width:20px;height:20px;border-radius:50%;background:${typeById(l.tipoId).color};margin-top:1px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
-          <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${l.qtd}x — ${typeById(l.tipoId).label}</b>${l.label && l.label!==typeById(l.tipoId).label ? '<br>'+l.label : ''}</div>
+  const resumo = legendaResumo();
+  const areas = state.plantas.flatMap((pl,li)=>(pl.areas||[]).map(a=>({a, planta: pl.nome||('Planta '+(li+1))})));
+  const blocos = (resumo.length===0 && areas.length===0) ? '' : `
+      ${resumo.map(l=>`
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+          <div style="width:20px;height:20px;border-radius:50%;background:${typeById(l.tipoId).color};flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
+          <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${String(l.qtd).padStart(2,'0')}x — ${typeById(l.tipoId).label}</b></div>
         </div>`).join('')}
       ${areas.length ? `
         <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin:14px 0 12px;">Áreas Demarcadas</div>
-        ${areas.map(a=>{
+        ${areas.map(({a, planta})=>{
           const cat = areaCatById(a.catId);
           return `<div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;">
             <div style="width:16px;height:16px;border-radius:4px;background:${cat.color}66;border:2px solid ${cat.color};margin-top:1px;flex-shrink:0;"></div>
-            <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${cat.label}</b>${a.descricao ? ' — '+a.descricao : ''}</div>
+            <div style="font-size:13px;color:#33415A;line-height:1.4;"><b>${multi ? escHtml(planta)+' — ' : ''}${cat.label}</b>${a.descricao ? ' — '+a.descricao : ''}</div>
           </div>`;
         }).join('')}` : ''}
     `;
-  }).join('');
   return pageShell(`
     ${pageHeader('03','Estrutura')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
