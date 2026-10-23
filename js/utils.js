@@ -1,5 +1,8 @@
 import { EQUIP_TYPES, AREA_CATS } from './constants.js';
 
+// Id estável (único por sessão e entre imports) para pins e cercas
+export function novoId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
 export function todayISO(){ return new Date().toISOString().slice(0,10); }
 
 export function showToast(msg){

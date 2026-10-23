@@ -1,6 +1,7 @@
-import { state, novaPlanta, pinOffsetGlobal } from '../state.js';
+import { state, novaPlanta } from '../state.js';
+import { numeroDoPin } from '../numeracao.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
-import { typeById, fileToDataURL, showToast } from '../utils.js';
+import { typeById, fileToDataURL, showToast, novoId } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
@@ -8,7 +9,6 @@ import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiq
 
 export function tplPlanta(){
   const pl = state.planta;
-  const off = pinOffsetGlobal(state.plantaAtiva);
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
     <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização.</p>
@@ -67,7 +67,7 @@ export function tplPlanta(){
         ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
-            <b style="font-size:12px;color:var(--text-mid);width:18px;">${off+pi+1}</b>
+            <b style="font-size:12px;color:var(--text-mid);width:18px;">${numeroDoPin(state.plantaAtiva, pi)}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
               ${EQUIP_TYPES.map(t=>`<option value="${t.id}" ${t.id===p.tipoId?'selected':''}>${t.label}</option>`).join('')}
             </select>
@@ -133,7 +133,7 @@ export function cercaDesfazer(){
 }
 export function cercaConcluir(){
   if(!tracoAtual || tracoAtual.length<2){ tracoAtual = null; renderContent(); return; }
-  state.planta.cercas.push({label:'Cerca / Concertina', pontos:tracoAtual});
+  state.planta.cercas.push({id:novoId(), label:'Cerca / Concertina', pontos:tracoAtual});
   tracoAtual = null;
   showToast('Traçado de cerca adicionado.');
   renderContent();
@@ -223,7 +223,6 @@ function renderCercas(wrap){
 export function afterPlantaRender(){
   const img = document.getElementById('plantaImg');
   const wrap = document.getElementById('plantaWrap');
-  const off = pinOffsetGlobal(state.plantaAtiva);
   if(img){
     img.onclick = (e)=>{
       if(suppressNextClick){ suppressNextClick = false; return; }
@@ -247,7 +246,7 @@ export function afterPlantaRender(){
         return;
       }
       const t = typeById(state.planta.selectedTipo);
-      state.planta.pins.push({tipoId:t.id, label:t.label, qtd:1, x, y, direcao:0, fotoLocal:null, fotoView:null});
+      state.planta.pins.push({id:novoId(), tipoId:t.id, label:t.label, qtd:1, x, y, direcao:0, fotoLocal:null, fotoView:null});
       renderContent();
     };
     img.onpointerdown = (e)=>{
@@ -286,7 +285,7 @@ export function afterPlantaRender(){
       pin.className = 'planta-pin';
       pin.title = 'Arraste para reposicionar';
       pin.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:3;cursor:grab;touch-action:none;`;
-      pin.innerHTML = ICONS[t.id] + `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${off+pi+1}</span>`;
+      pin.innerHTML = ICONS[t.id] + `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(state.plantaAtiva, pi)}</span>`;
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
     });

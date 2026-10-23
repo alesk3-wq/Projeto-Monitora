@@ -1,4 +1,5 @@
-import { state, pinOffsetGlobal } from '../state.js';
+import { state } from '../state.js';
+import { numeroDoPin } from '../numeracao.js';
 import { typeById, showToast } from '../utils.js';
 import { renderContent, switchTab } from '../nav.js';
 
@@ -42,10 +43,9 @@ export function importFromPlanta(){
   const multi = state.plantas.length > 1;
   let criados = 0;
   state.plantas.forEach((pl,li)=>{
-    const off = pinOffsetGlobal(li);
     const itens = pl.pins.map((p,pi)=>({
       qtd: parseInt(p.qtd)||1,
-      nome: `${p.label||typeById(p.tipoId).label} — Ponto ${off+pi+1}`,
+      nome: `${p.label||typeById(p.tipoId).label} — Ponto ${numeroDoPin(li, pi)}`,
       desc: '',
     }));
     (pl.cercas||[]).forEach(c=>{

@@ -1,4 +1,5 @@
-import { state, pinOffsetGlobal } from './state.js';
+import { state } from './state.js';
+import { numeroDoPin, pontosPorTipo } from './numeracao.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById, escHtml } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
@@ -98,10 +99,10 @@ function pageObjetivo(){
     ${footerBrand()}
   `);
 }
-// Todos os pins de todas as plantas, na ordem global de numeração
+// Todos os pins de todas as plantas, na ordem da Estrutura: por tipo (EQUIP_TYPES) e, dentro do tipo, pelo número
 function pinsGlobais(){
   const out = [];
-  state.plantas.forEach((pl,li)=>pl.pins.forEach((p,pi)=>out.push({p, pl, li, pi})));
+  pontosPorTipo().forEach(g=>g.pontos.forEach(pt=>out.push({p:pt.pin, pl:state.plantas[pt.plantaIdx], li:pt.plantaIdx, pi:pt.pinIdx, numero:pt.numero})));
   return out;
 }
 function equipamentoLegend(pl){
@@ -194,7 +195,7 @@ export function etiquetasHtml(pl, rect){
   });
   return linhas.join('') + caixas.join('');
 }
-function pageMapeamento(pl, dims, titulo, off){
+function pageMapeamento(pl, dims, titulo, li){
   const BOX_W = PW - 128, BOX_H = 770; // container: left/right:64, height:770
   const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
   const pinsHtml = pl.pins.map((p,pi)=>{
@@ -204,7 +205,7 @@ function pageMapeamento(pl, dims, titulo, off){
     const cone = !t.cameraLike ? '' : (t.foco360
       ? `<div style="position:absolute;left:${left}px;top:${top}px;width:120px;height:120px;border-radius:50%;background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;transform:translate(-50%,-50%);"></div>`
       : `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:34px solid transparent;border-right:34px solid transparent;border-top:72px solid ${t.color}66;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>`);
-    const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${off+pi+1}</span>`;
+    const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(li, pi)}</span>`;
     return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');
   const cercaHtml = (pl.cercas||[]).map(c=>{
@@ -248,14 +249,14 @@ function itemDoPonto(index){
   }
   return null;
 }
-function pageEquipamento(pin, index, cropUrl){
+function pageEquipamento(pin, numero, cropUrl){
   const t = typeById(pin.tipoId);
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:13px;">${txt}</div>`;
-  const item = itemDoPonto(index);
+  const item = itemDoPonto(numero-1);
   const legendaItem = item ? `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;"><b style="color:${BRAND.cor};">${item.nome}</b>${item.desc ? '<br>'+item.desc : ''}</div>` : '';
   return pageShell(`
-    ${pageHeader(String(index+1), t.label + (pin.label?' — '+pin.label:''))}
+    ${pageHeader(String(numero), t.label + (pin.label?' — '+pin.label:''))}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:170px;left:64px;right:64px;bottom:70px;display:flex;gap:24px;">
       <div style="flex:1;">
@@ -313,12 +314,12 @@ export async function gerarPDF(){
     if(multi && plantaVazia(pl)) continue;
     const dims = await loadImageDims(pl.imagem);
     const titulo = 'Mapeamento' + (multi ? ` — ${pl.nome||('Planta '+(li+1))}` : '');
-    mapPages.push(pageMapeamento(pl, dims, titulo, pinOffsetGlobal(li)));
+    mapPages.push(pageMapeamento(pl, dims, titulo, li));
   }
   if(mapPages.length===0) mapPages.push(pageMapeamento(state.plantas[0], null, 'Mapeamento', 0));
   const pages = [
     pageCapa(), pageSumario(), pageObjetivo(), ...mapPages, pageEstrutura(),
-    ...gp.map((g,i)=>pageEquipamento(g.p, i, equipCrops[i])),
+    ...gp.map((g,i)=>pageEquipamento(g.p, g.numero, equipCrops[i])),
     pagePremissas(), pageEncerramento()
   ];
   const { jsPDF } = window.jspdf;

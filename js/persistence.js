@@ -1,6 +1,6 @@
 import { state, setState, novaPlanta, attachPlantaAlias } from './state.js';
 import { switchTab } from './nav.js';
-import { showToast } from './utils.js';
+import { showToast, novoId } from './utils.js';
 
 export function exportarProjeto(){
   const dataStr = JSON.stringify(state, null, 2);
@@ -33,6 +33,8 @@ export function normalizarProjeto(loaded){
     if(!pl.areas) pl.areas = [];
     if(!pl.etiquetas) pl.etiquetas = [];
     if(!pl.selectedTipo) pl.selectedTipo = 'bullet';
+    pl.pins.forEach(p=>{ if(!p.id) p.id = novoId(); });
+    pl.cercas.forEach(c=>{ if(!c.id) c.id = novoId(); });
     if(!pl.selectedAreaCat) pl.selectedAreaCat = 'area1';
   });
   return loaded;

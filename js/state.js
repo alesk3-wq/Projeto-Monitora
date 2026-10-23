@@ -16,13 +16,6 @@ export function attachPlantaAlias(obj){
   });
 }
 
-// Numeração global contínua: quantos pins existem nas plantas anteriores a plantaIdx
-export function pinOffsetGlobal(plantaIdx){
-  let n = 0;
-  for(let i=0; i<plantaIdx && i<state.plantas.length; i++) n += state.plantas[i].pins.length;
-  return n;
-}
-
 export let state = {
   projeto: { unidade:'', local:'', equipe:'Núcleo de Tecnologia', responsavel:'', data: todayISO() },
   objetivo: { problema:'', solucao:'' },

@@ -23,35 +23,80 @@ try{
   state.plantas[0].nome = 'Térreo';
   state.plantas[1].nome = 'Galpão B';
 
-  // 2. pins nas duas (3 + 2) — numeração global
+  // 2. pins nas duas (3 + 2) — numeração por tipo, contínua entre plantas
   state.plantas[0].pins.push(
     {tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:10, y:10, direcao:0},
     {tipoId:'dome', label:'Câmera Dome', qtd:1, x:50, y:50, direcao:90},
-    {tipoId:'ptz', label:'PTZ', qtd:1, x:80, y:20, direcao:0});
+    {tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:80, y:20, direcao:0});
   state.plantas[1].pins.push(
-    {tipoId:'lpr', label:'LPR Portaria', qtd:1, x:30, y:60, direcao:180},
+    {tipoId:'bullet', label:'Bullet Portaria', qtd:1, x:30, y:60, direcao:180},
     {tipoId:'fechadura', label:'Fechadura', qtd:2, x:70, y:70});
+  const N = await import('./js/numeracao.js');
+  assert('numeroDoPin Térreo = [1,1,2]', [0,1,2].map(i=>N.numeroDoPin(0,i)).join()==='1,1,2');
+  const ppt = N.pontosPorTipo();
+  assert('pontosPorTipo: bullet, dome, fechadura', ppt.map(g=>g.tipo.id).join()==='bullet,dome,fechadura');
+  assert('bullet 1,2,3 com o 3º no Galpão B', ppt[0].pontos.map(p=>p.numero).join()==='1,2,3' && ppt[0].pontos[2].plantaIdx===1);
 
-  // 3. aba planta: seletor com 2 abas + botão add; lista numera 4 e 5 na planta 2
+  // 3. aba planta: seletor com 2 abas + botão add; lista numera 3 e 1 na planta 2
   window.switchTab('planta');
   const tabs = document.querySelectorAll('.planta-tab');
   assert('seletor tem 3 botões (2 plantas + add)', tabs.length===3);
   assert('aba ativa é Galpão B', document.querySelector('.planta-tab.active')?.textContent==='Galpão B');
   const nums = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
-  assert('lista da planta 2 numera 4 e 5', nums[0]==='4' && nums[1]==='5');
+  assert('lista da planta 2 numera 3 e 1', nums[0]==='3' && nums[1]==='1');
+  {
+    const cvB = document.createElement('canvas'); cvB.width = 100; cvB.height = 100;
+    state.plantas[1].imagem = cvB.toDataURL('image/png'); window.renderContent();
+    const bd = i=>document.querySelector('#pinicon-'+i+' span')?.textContent;
+    assert('badges do Galpão B = 3 e 1', bd(0)==='3' && bd(1)==='1');
+    state.plantas[1].imagem = null; window.renderContent();
+  }
 
-  // 4. fichas: números globais e subtítulo por planta
+  // 4. fichas: números por tipo e subtítulo por planta
   window.switchTab('equipamentos');
   const html = document.getElementById('content').innerHTML;
-  assert('ficha Equipamento 4 existe', html.includes('Equipamento 4'));
+  assert('ficha Câmera Bullet — Ponto 3 existe e não há Equipamento 4', html.includes('Câmera Bullet — Ponto 3') && !html.includes('Equipamento 4'));
+  const ordem = ['Câmera Bullet — Ponto 1','Câmera Bullet — Ponto 2','Câmera Bullet — Ponto 3','Câmera Dome — Ponto 1','Fechadura Eletrônica — Ponto 1'].map(t=>html.indexOf(t));
+  assert('ordem das fichas por tipo', ordem.every((v,i)=>v>=0 && (i===0 || v>ordem[i-1])));
   assert('subtítulo da planta aparece', html.includes('Planta — Térreo') && html.includes('Planta — Galpão B'));
 
-  // 5. gerar a partir da planta: 2 grupos, Ponto global
+  // 5. gerar a partir da planta: 2 grupos, Ponto por tipo
   window.importFromPlanta();
   const grupos = state.estrutura.filter(g=>g.titulo.startsWith('Equipamentos Mapeados'));
   assert('2 grupos criados', grupos.length===2);
   assert('grupo 1 = Térreo', grupos[0].titulo==='Equipamentos Mapeados — Térreo');
-  assert('item da planta 2 usa Ponto 4', grupos[1].itens[0].nome.includes('Ponto 4'));
+  assert('item da planta 2 usa Ponto 3', grupos[1].itens[0].nome.includes('Ponto 3'));
+
+  // 5b. ids estáveis e renumeração ao excluir
+  {
+    const P = await import('./js/persistence.js');
+    const norm = P.normalizarProjeto({plantas:[{pins:[{tipoId:'bullet'},{tipoId:'dome'}], cercas:[{label:'c',pontos:[]}]},{pins:[{tipoId:'bullet'}]}]});
+    const ids = [...norm.plantas[0].pins, ...norm.plantas[1].pins, ...norm.plantas[0].cercas].map(x=>x.id);
+    assert('normalizarProjeto preenche ids distintos', ids.every(i=>typeof i==='string' && i) && new Set(ids).size===ids.length);
+
+    const cv0 = document.createElement('canvas'); cv0.width = 400; cv0.height = 400;
+    const nP0 = state.plantas[1].pins.length;
+    state.plantaAtiva = 1; state.plantas[1].imagem = cv0.toDataURL('image/png'); state.plantas[1].selectedTipo = 'dome';
+    window.switchTab('planta');
+    await new Promise(r=>setTimeout(r,100));
+    const im0 = document.getElementById('plantaImg');
+    const rc = im0.getBoundingClientRect();
+    im0.dispatchEvent(new MouseEvent('click', {bubbles:true, clientX:rc.left+20, clientY:rc.top+20}));
+    im0.dispatchEvent(new MouseEvent('click', {bubbles:true, clientX:rc.left+40, clientY:rc.top+40}));
+    const novos = state.plantas[1].pins.slice(nP0);
+    assert('pins criados por clique têm id distinto', novos.length===2 && novos.every(p=>typeof p.id==='string' && p.id) && novos[0].id!==novos[1].id);
+    state.plantas[1].pins.length = nP0; state.plantas[1].imagem = null; state.plantas[1].selectedTipo = 'bullet';
+    state.plantaAtiva = 1;
+
+    // excluir o 1º pin do Térreo (bullet): bullet do Térreo vira 1, o do Galpão 2, dome continua 1
+    state.plantaAtiva = 0;
+    window.removePin(0);
+    const antes = [N.numeroDoPin(0,1), N.numeroDoPin(1,0), N.numeroDoPin(0,0)];
+    assert('excluir 1º bullet renumera por tipo', antes.join()==='1,2,1');
+    state.plantas[0].pins.unshift({id:'x-restaurado', tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:10, y:10, direcao:0});
+    state.plantaAtiva = 1;
+    window.switchTab('estrutura');
+  }
 
   // 6. contadores da aba Gerar somam tudo
   window.switchTab('gerar');
@@ -229,7 +274,7 @@ try{
   state.plantas.splice(1,1); state.plantaAtiva = 0;
   window.switchTab('planta');
   const nums2 = [...document.querySelectorAll('.pinrow b')].map(b=>b.textContent);
-  assert('após excluir planta 2, planta 1 numera 1..3', nums2[0]==='1' && nums2[2]==='3');
+  assert('após excluir planta 2, planta 1 numera 1,1,2', nums2.join()==='1,1,2');
 
   // ---- Rolagem estável / planta larga ----
   state.plantaAtiva = 0;

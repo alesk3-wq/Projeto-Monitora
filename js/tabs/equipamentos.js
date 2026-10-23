@@ -1,4 +1,5 @@
-import { state, pinOffsetGlobal } from '../state.js';
+import { state } from '../state.js';
+import { pontosPorTipo } from '../numeracao.js';
 import { ICONS } from '../constants.js';
 import { typeById, fileToDataURL, defaultCropFrac } from '../utils.js';
 import { renderContent } from '../nav.js';
@@ -6,18 +7,16 @@ import { renderContent } from '../nav.js';
 export function tplEquipamentos(){
   const multi = state.plantas.length > 1;
   const totalPins = state.plantas.reduce((s,pl)=>s+pl.pins.length, 0);
-  const cards = state.plantas.map((pl,li)=>{
-    if(pl.pins.length===0) return '';
-    const off = pinOffsetGlobal(li);
+  // Ordem das fichas = ordem da Estrutura: por tipo (EQUIP_TYPES) e, dentro do tipo, pelo número
+  const cards = pontosPorTipo().map(g=>g.pontos.map(({pin:p, plantaIdx:li, pinIdx:pi, numero})=>{
+    const pl = state.plantas[li];
     return `
-    ${multi ? `<div style="font-weight:800;color:var(--text-mid);font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin:18px 0 10px;">Planta — ${pl.nome||('Planta '+(li+1))}</div>` : ''}
-    ${pl.pins.map((p,pi)=>`
       <div class="card">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
           <span class="icon-dot" style="width:30px;height:30px;background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
           <div>
-            <div style="font-weight:800;color:var(--text-dark);">Equipamento ${off+pi+1} — ${typeById(p.tipoId).label}</div>
-            <div style="font-size:12.5px;color:var(--text-mid);">${p.label||''}</div>
+            <div style="font-weight:800;color:var(--text-dark);">${typeById(p.tipoId).label} — Ponto ${numero}</div>
+            <div style="font-size:12.5px;color:var(--text-mid);">${multi ? `Planta — ${pl.nome||('Planta '+(li+1))}${p.label?' · ':''}` : ''}${p.label||''}</div>
           </div>
         </div>
         <div class="row">
@@ -41,8 +40,8 @@ export function tplEquipamentos(){
           </div>
         </div>
       </div>
-    `).join('')}`;
-  }).join('');
+    `;
+  }).join('')).join('');
   return `
     <h1 class="pagetitle">04 · Fichas de Equipamentos</h1>
     <p class="pagesub">Uma página individual é gerada para cada equipamento posicionado na planta, com a localização e as fotos do local.</p>
