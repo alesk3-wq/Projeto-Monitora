@@ -25,12 +25,12 @@ try{
 
   // 2. pins nas duas (3 + 2) — numeração por tipo, contínua entre plantas
   state.plantas[0].pins.push(
-    {tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:10, y:10, direcao:0},
-    {tipoId:'dome', label:'Câmera Dome', qtd:1, x:50, y:50, direcao:90},
-    {tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:80, y:20, direcao:0});
+    {id:'b1', tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:10, y:10, direcao:0},
+    {id:'d1', tipoId:'dome', label:'Câmera Dome', qtd:1, x:50, y:50, direcao:90},
+    {id:'b2', tipoId:'bullet', label:'Câmera Bullet', qtd:1, x:80, y:20, direcao:0});
   state.plantas[1].pins.push(
-    {tipoId:'bullet', label:'Bullet Portaria', qtd:1, x:30, y:60, direcao:180},
-    {tipoId:'fechadura', label:'Fechadura', qtd:2, x:70, y:70});
+    {id:'b3', tipoId:'bullet', label:'Bullet Portaria', qtd:1, x:30, y:60, direcao:180},
+    {id:'f1', tipoId:'fechadura', label:'Fechadura', qtd:1, x:70, y:70});
   const N = await import('./js/numeracao.js');
   assert('numeroDoPin Térreo = [1,1,2]', [0,1,2].map(i=>N.numeroDoPin(0,i)).join()==='1,1,2');
   const ppt = N.pontosPorTipo();
@@ -60,12 +60,94 @@ try{
   assert('ordem das fichas por tipo', ordem.every((v,i)=>v>=0 && (i===0 || v>ordem[i-1])));
   assert('subtítulo da planta aparece', html.includes('Planta — Térreo') && html.includes('Planta — Galpão B'));
 
-  // 5. gerar a partir da planta: 2 grupos, Ponto por tipo
-  window.importFromPlanta();
-  const grupos = state.estrutura.filter(g=>g.titulo.startsWith('Equipamentos Mapeados'));
-  assert('2 grupos criados', grupos.length===2);
-  assert('grupo 1 = Térreo', grupos[0].titulo==='Equipamentos Mapeados — Térreo');
-  assert('item da planta 2 usa Ponto 3', grupos[1].itens[0].nome.includes('Ponto 3'));
+  // 5. Estrutura sincronizada, agrupada por tipo
+  {
+    const ES = await import('./js/tabs/estrutura.js');
+    const PD = await import('./js/pdf.js');
+    const titulos = ()=>ES.gruposGerados().map(g=>g.titulo);
+    const linhaDe = id=>ES.gruposGerados().flatMap(g=>g.linhas).find(l=>l.id===id);
+    assert('legendaFicha sem seção gerada = vazia', PD.legendaFicha(state.plantas[0].pins[0])==='');
+    const nManualAntes = state.estrutura.length;
+    state.estrutura.push({titulo:'Manual', itens:[{qtd:2, nome:'Sirene', desc:'Pátio'}]});
+    window.importFromPlanta();
+    assert('importFromPlanta cria 1 seção gerada', state.estrutura.filter(g=>g.gerado).length===1);
+    window.importFromPlanta();
+    assert('importFromPlanta de novo não duplica', state.estrutura.filter(g=>g.gerado).length===1);
+    assert('títulos por tipo (NNx)', titulos().join('|')==='03x Câmera Bullet|01x Câmera Dome|01x Fechadura Eletrônica');
+    assert('linha do 3º bullet com prefixo da planta', linhaDe('b3')?.texto==='Galpão B — Ponto 3 — Bullet Portaria');
+    // cerca
+    state.plantas[0].cercas.push({id:'c1', label:'Muro Norte', pontos:[{x:1,y:1},{x:9,y:9}]});
+    assert('grupo de cerca por último', titulos().join('|')==='03x Câmera Bullet|01x Câmera Dome|01x Fechadura Eletrônica|01x Cerca / Concertina'
+      && linhaDe('c1')?.texto==='Térreo — Trecho 1 — Muro Norte');
+    state.plantas[0].cercas.length = 0;
+    // qtd 2
+    state.plantas[0].pins[2].qtd = 2;
+    assert('qtd 2 soma no cabeçalho e marca (2x)', titulos()[0]==='04x Câmera Bullet' && linhaDe('b2').texto.includes('(2x)'));
+    state.plantas[0].pins[2].qtd = 1;
+    // descrição acompanha o pin
+    window.setDescGerada('d1', 'Portaria');
+    const grupoCom = txt=>ES.gruposGerados().filter(g=>g.linhas.some(l=>l.desc===txt)).map(g=>g.tipoId);
+    assert('descrição aparece na linha', linhaDe('d1').desc==='Portaria' && grupoCom('Portaria').join()==='dome');
+    state.plantas[0].pins[1].tipoId = 'bullet';
+    assert('trocar tipo leva a descrição pro novo grupo', grupoCom('Portaria').join()==='bullet' && titulos()[0]==='04x Câmera Bullet');
+    state.plantas[0].pins[1].tipoId = 'dome';
+    // ficha <-> item por id
+    const leg = PD.legendaFicha(state.plantas[0].pins[1]);
+    assert('legendaFicha casa por id (texto + descrição)', leg.includes('Ponto 1 — Câmera Dome') && leg.includes('Portaria'));
+    assert('legendaFicha sem descrição ainda mostra a linha', PD.legendaFicha(state.plantas[1].pins[0]).includes('Galpão B — Ponto 3 — Bullet Portaria'));
+    // aba
+    window.switchTab('estrutura');
+    const heads = [...document.querySelectorAll('.gerado-head')];
+    assert('aba: cabeçalho gerado com ícone do tipo', heads.length===3 && heads.every(h=>h.querySelector('.icon-dot svg')) && heads[0].textContent.includes('03x Câmera Bullet'));
+    const descInputs = document.querySelectorAll('.gerado-linha input');
+    assert('aba: um input de descrição por linha', descInputs.length===5 && [...descInputs].some(i=>i.value==='Portaria'));
+    assert('aba: grupo manual continua editável', document.querySelectorAll('.item-row .qtd, .item-row .nome, .item-row .desc').length===3);
+    descInputs[0].value = 'Doca'; descInputs[0].dispatchEvent(new Event('input', {bubbles:true}));
+    assert('aba: input grava a descrição', linhaDe(ES.gruposGerados()[0].linhas[0].id).desc==='Doca');
+    // contadores e validação
+    window.switchTab('gerar');
+    const st = [...document.querySelectorAll('.stat .n')].map(e=>e.textContent);
+    assert('contadores incluem grupos gerados', st[0]==='4' && st[1]==='7');
+    const salvo = state.estrutura.slice();
+    state.estrutura = salvo.filter(g=>g.gerado);
+    assert('validação: só seção gerada com pins = OK', !v.validarProposta().some(p=>p.campo==='estrutura'));
+    // seção sem pins
+    const pinsSalvos = state.plantas.map(pl=>pl.pins);
+    state.plantas.forEach(pl=>pl.pins=[]);
+    window.switchTab('estrutura');
+    const htmlVazio = document.getElementById('content').innerHTML;
+    assert('aba: seção vazia mostra dica', htmlVazio.includes('Nenhum equipamento na planta') && !document.querySelector('.gerado-head'));
+    assert('PDF: seção vazia sem cabeçalho', !/\d\dx /.test(PD.pageEstrutura().split('Legenda')[0]));
+    assert('validação: seção vazia = pendência', v.validarProposta().some(p=>p.campo==='estrutura'));
+    state.plantas.forEach((pl,i)=>pl.pins=pinsSalvos[i]);
+    state.estrutura = salvo;
+    // PDF Estrutura
+    const est = PD.pageEstrutura();
+    assert('PDF Estrutura: grupo gerado com ícone e linhas', est.includes('03x Câmera Bullet') && est.includes('Ponto 1 — Câmera Dome</b>: Portaria') && est.includes('<svg') && est.includes('Sirene') && !est.includes('clip-path'));
+    // excluir o pin leva a descrição embora
+    const dRem = state.plantas[0].pins.splice(1,1)[0];
+    assert('excluir pin some com a descrição', grupoCom('Portaria').length===0);
+    state.plantas[0].pins.splice(1,0,dRem);
+    // .json antigo
+    const P = await import('./js/persistence.js');
+    const antigoE = P.normalizarProjeto({estrutura:[{titulo:'Equipamentos Mapeados', itens:[{qtd:1,nome:'Câmera — Ponto 7',desc:''}]}], plantas:[{pins:[]}]});
+    assert('grupo antigo continua manual', !antigoE.estrutura[0].gerado && antigoE.estrutura[0].itens.length===1);
+    const salvo2 = state.estrutura; state.estrutura = antigoE.estrutura;
+    window.switchTab('estrutura');
+    assert('aba renderiza grupo antigo', document.querySelectorAll('.item-row').length===1);
+    state.estrutura = salvo2;
+    // remover seção gerada
+    const conf0 = window.confirm; window.confirm = ()=>true;
+    window.switchTab('estrutura');
+    window.removeSecaoGerada();
+    window.confirm = conf0;
+    assert('remover seção gerada', !state.estrutura.some(g=>g.gerado) && state.estrutura.length===nManualAntes+1);
+    state.estrutura.length = nManualAntes;
+    // uma planta só: sem prefixo
+    const pl2 = state.plantas.splice(1,1)[0];
+    assert('uma planta: linha sem prefixo', linhaDe('b1')?.texto==='Ponto 1 — Câmera Bullet');
+    state.plantas.splice(1,0,pl2);
+  }
 
   // 5b. ids estáveis e renumeração ao excluir
   {
@@ -126,7 +208,10 @@ try{
   const nGrp = state.estrutura.length, nPins = state.plantas[0].pins.length;
   state.plantas[0].pins.push({tipoId:'sensor_porta', label:'Sensor de Abertura de Porta', qtd:1, x:5, y:5});
   window.importFromPlanta();
-  assert('sensor gera item na Estrutura', state.estrutura.some(g=>g.itens.some(i=>i.nome.includes('Sensor de Abertura de Porta — Ponto'))));
+  {
+    const ES = await import('./js/tabs/estrutura.js');
+    assert('sensor gera grupo na Estrutura', ES.gruposGerados().some(g=>g.titulo==='01x Sensor de Abertura de Porta'));
+  }
   state.plantas[0].pins.length = nPins; state.estrutura.length = nGrp;
 
   // ---- helpers async (usados daqui em diante) ----
@@ -182,7 +267,8 @@ try{
       && document.querySelector('#plantaWrap .etq-box')?.textContent===perigoso);
 
     window.importFromPlanta();
-    const vazou = state.estrutura.some(g=>g.itens.some(i=>/Nova etiqueta|fantasma/.test(i.nome+' '+(i.desc||''))));
+    const ES = await import('./js/tabs/estrutura.js');
+    const vazou = ES.gruposGerados().some(g=>g.linhas.some(l=>/Nova etiqueta|fantasma/.test(l.texto+' '+l.desc)));
     window.switchTab('gerar');
     const statsE = [...document.querySelectorAll('.stat .n')].map(e=>e.textContent);
     window.switchTab('equipamentos');

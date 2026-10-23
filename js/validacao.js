@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { resumoEstrutura } from './tabs/estrutura.js';
 
 export const CHECKS = [
   {campo:'projeto', label:'Unidade preenchida'},
@@ -15,7 +16,7 @@ export function validarProposta(){
   if(!(state.objetivo.problema||'').trim()) pend.push({campo:'objetivo', msg:'"Área a ser Monitorada" vazia (aba 01)'});
   if(!(state.objetivo.solucao||'').trim()) pend.push({campo:'objetivo', msg:'"Diretriz da Proposta" vazia (aba 01)'});
   if(!state.plantas.some(pl=>pl.imagem)) pend.push({campo:'planta', msg:'Nenhuma planta baixa anexada (aba 02)'});
-  const temItens = state.estrutura.some(g=>g.itens && g.itens.some(it=>(it.nome||'').trim()));
+  const { temItens } = resumoEstrutura();
   if(!temItens) pend.push({campo:'estrutura', msg:'Nenhum equipamento na Estrutura (aba 03)'});
   const semFoto = state.plantas.reduce((s,pl)=>s+pl.pins.filter(p=>!p.fotoLocal || !p.fotoView).length, 0);
   if(semFoto>0) pend.push({campo:'fichas', msg:`${semFoto} equipamento(s) sem foto do local e/ou da visualização (aba 04)`});

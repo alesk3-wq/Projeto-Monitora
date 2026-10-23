@@ -1,8 +1,9 @@
 import { state } from '../state.js';
 import { validarProposta, CHECKS } from '../validacao.js';
+import { resumoEstrutura } from './estrutura.js';
 
 export function tplGerar(){
-  const totalItens = state.estrutura.reduce((s,g)=>s+g.itens.reduce((s2,it)=>s2+(parseInt(it.qtd)||0),0),0);
+  const { grupos: totalGrupos, itens: totalItens } = resumoEstrutura();
   const allPins = state.plantas.flatMap(pl=>pl.pins);
   const totalPins = allPins.length;
   const totalFichas = allPins.filter(p=>p.fotoLocal && p.fotoView).length;
@@ -19,7 +20,7 @@ export function tplGerar(){
     <h1 class="pagetitle">Gerar Proposta</h1>
     <p class="pagesub">Revise o resumo e gere o PDF completo com a identidade Bracell · Segurança Patrimonial.</p>
     <div class="summary-grid">
-      <div class="stat"><div class="n">${state.estrutura.length}</div><div class="l">Grupos de equipamento</div></div>
+      <div class="stat"><div class="n">${totalGrupos}</div><div class="l">Grupos de equipamento</div></div>
       <div class="stat"><div class="n">${totalItens}</div><div class="l">Itens quantificados</div></div>
       <div class="stat"><div class="n">${totalPins}</div><div class="l">Pontos na planta</div></div>
       <div class="stat"><div class="n">${totalFichas}/${totalPins}</div><div class="l">Fichas completas</div></div>

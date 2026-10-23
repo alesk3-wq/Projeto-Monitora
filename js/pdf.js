@@ -4,6 +4,7 @@ import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById, escHtml } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
+import { gruposGerados, secaoGerada } from './tabs/estrutura.js';
 import { exportarProjeto } from './persistence.js';
 import { validarProposta } from './validacao.js';
 
@@ -118,7 +119,21 @@ function equipamentoLegend(pl){
   });
   return legend;
 }
-function pageEstrutura(){
+// Grupos gerados (por tipo, vivos) no lugar da entrada {gerado:true} da Estrutura
+function estruturaGeradaHtml(){
+  return gruposGerados().map(g=>`
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:${typeById(g.tipoId).color};flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[g.tipoId]}</div>
+        <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:15px;">${escHtml(g.titulo)}</div>
+      </div>
+      ${g.linhas.map(l=>`
+        <div style="font-size:13.5px;color:#33415A;line-height:1.5;margin:0 0 4px 30px;">
+          <b>${escHtml(l.texto)}</b>${l.desc ? ': '+escHtml(l.desc) : ''}
+        </div>`).join('')}
+    </div>`).join('');
+}
+export function pageEstrutura(){
   const multi = state.plantas.length > 1;
   const blocos = state.plantas.map((pl,li)=>{
     const legend = equipamentoLegend(pl);
@@ -146,7 +161,7 @@ function pageEstrutura(){
     ${pageHeader('03','Estrutura')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:165px;left:64px;right:530px;bottom:70px;overflow:hidden;">
-      ${state.estrutura.map(g=>`
+      ${state.estrutura.map(g=> g.gerado ? estruturaGeradaHtml() : `
         <div style="margin-bottom:20px;">
           <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:15px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
           ${g.itens.map(it=>`
@@ -238,23 +253,19 @@ function pageMapeamento(pl, dims, titulo, li){
     ${footerBrand()}
   `);
 }
-// Item da Estrutura correspondente ao pin de índice `index` (procura "Ponto N" no nome,
-// como o "Gerar a partir da planta" nomeia; \b evita que "Ponto 1" case com "Ponto 10")
-function itemDoPonto(index){
-  const re = new RegExp(`Ponto ${index+1}\\b`);
-  for(const g of state.estrutura){
-    for(const it of (g.itens||[])){
-      if(it.nome && re.test(it.nome)) return it;
-    }
-  }
-  return null;
+// Legenda da ficha: linha da seção gerada da Estrutura casada pelo id do pin (texto + descrição).
+// Sem seção gerada ou sem linha para o pin → string vazia (sem legenda).
+export function legendaFicha(pin){
+  if(!secaoGerada() || !pin?.id) return '';
+  const l = gruposGerados().flatMap(g=>g.linhas).find(x=>x.id===pin.id);
+  if(!l) return '';
+  return `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;"><b style="color:${BRAND.cor};">${escHtml(l.texto)}</b>${l.desc ? '<br>'+escHtml(l.desc) : ''}</div>`;
 }
 function pageEquipamento(pin, numero, cropUrl){
   const t = typeById(pin.tipoId);
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:13px;">${txt}</div>`;
-  const item = itemDoPonto(numero-1);
-  const legendaItem = item ? `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;"><b style="color:${BRAND.cor};">${item.nome}</b>${item.desc ? '<br>'+item.desc : ''}</div>` : '';
+  const legendaItem = legendaFicha(pin);
   return pageShell(`
     ${pageHeader(String(numero), t.label + (pin.label?' — '+pin.label:''))}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}

@@ -37,6 +37,21 @@ export function normalizarProjeto(loaded){
     pl.cercas.forEach(c=>{ if(!c.id) c.id = novoId(); });
     if(!pl.selectedAreaCat) pl.selectedAreaCat = 'area1';
   });
+  // Estrutura: grupos manuais {titulo, itens} (inclusive os "Equipamentos Mapeados" antigos)
+  // e no máximo uma seção gerada {gerado:true, descs}
+  if(!Array.isArray(loaded.estrutura)) loaded.estrutura = [];
+  let temGerada = false;
+  loaded.estrutura = loaded.estrutura.filter(g=>{
+    if(!g || typeof g!=='object') return false;
+    if(g.gerado){
+      if(temGerada) return false;
+      temGerada = true;
+      if(!g.descs || typeof g.descs!=='object') g.descs = {};
+      return true;
+    }
+    if(!Array.isArray(g.itens)) g.itens = [];
+    return true;
+  });
   return loaded;
 }
 
