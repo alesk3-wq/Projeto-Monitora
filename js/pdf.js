@@ -261,13 +261,13 @@ export function legendaFicha(pin){
   if(!l) return '';
   return `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;"><b style="color:${BRAND.cor};">${escHtml(l.texto)}</b>${l.desc ? '<br>'+escHtml(l.desc) : ''}</div>`;
 }
-function pageEquipamento(pin, numero, cropUrl){
+export function pageEquipamento(pin, numero, cropUrl){
   const t = typeById(pin.tipoId);
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:13px;">${txt}</div>`;
   const legendaItem = legendaFicha(pin);
   return pageShell(`
-    ${pageHeader(String(numero), t.label + (pin.label?' — '+pin.label:''))}
+    ${pageHeader(String(numero), `${t.label} — Ponto ${numero}` + (pin.label && pin.label!==t.label ? ' — '+escHtml(pin.label) : ''))}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
     <div style="position:absolute;top:170px;left:64px;right:64px;bottom:70px;display:flex;gap:24px;">
       <div style="flex:1;">

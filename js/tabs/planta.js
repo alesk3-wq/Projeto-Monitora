@@ -69,7 +69,7 @@ export function tplPlanta(){
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
             <b style="font-size:12px;color:var(--text-mid);width:18px;">${numeroDoPin(state.plantaAtiva, pi)}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
-              ${EQUIP_TYPES.map(t=>`<option value="${t.id}" ${t.id===p.tipoId?'selected':''}>${t.label}</option>`).join('')}
+              ${EQUIP_TYPES.filter(t=>t.id!=='cerca' || p.tipoId==='cerca').map(t=>`<option value="${t.id}" ${t.id===p.tipoId?'selected':''}>${t.label}</option>`).join('')}
             </select>
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">

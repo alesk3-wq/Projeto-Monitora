@@ -398,6 +398,46 @@ try{
   window.switchTab('projeto');
   const wideJ = document.getElementById('content').classList.contains('wide');
   assert('content largo só na Planta', wideP && !wideJ);
+
+  // 7. fixes do review final
+  {
+    const PD2 = await import('./js/pdf.js');
+    const h1 = PD2.pageEquipamento({tipoId:'bullet', label:'Portaria <1>', qtd:1}, 2, null);
+    assert('ficha PDF: título com Ponto N e rótulo escapado', h1.includes('Câmera Bullet — Ponto 2 — Portaria &lt;1&gt;'));
+    const h2 = PD2.pageEquipamento({tipoId:'bullet', label:'Câmera Bullet', qtd:1}, 3, null);
+    assert('ficha PDF: rótulo igual ao tipo não repete', h2.includes('Câmera Bullet — Ponto 3') && !h2.includes('Ponto 3 — Câmera Bullet'));
+
+    state.plantaAtiva = 0;
+    const pl0 = state.plantas[0];
+    const nPins0 = pl0.pins.length;
+    pl0.pins.push({id:'zz-bul', tipoId:'bullet', label:'', qtd:1, x:5, y:5, direcao:0});
+    window.switchTab('planta'); await frame();
+    const sel0 = [...document.querySelectorAll('.pinrow select')].find(x=>[...x.options].some(o=>o.value==='bullet'));
+    assert('select de pin sem opção cerca', !!sel0 && ![...sel0.options].some(o=>o.value==='cerca'));
+    pl0.pins.push({id:'zz-cerca', tipoId:'cerca', label:'', qtd:1, x:5, y:5, direcao:0});
+    window.switchTab('planta'); await frame();
+    const sels = [...document.querySelectorAll('.pinrow select')];
+    assert('pin antigo tipo cerca mantém a opção', sels[sels.length-1].value==='cerca');
+    pl0.pins.length = nPins0;
+
+    const P2 = await import('./js/persistence.js');
+    const nz = P2.normalizarProjeto({plantas:[{pins:[{id:'p1',tipoId:'bullet'}],cercas:[{id:'c1',pontos:[]}]}], estrutura:[{gerado:true, descs:{p1:'a', c1:'b', fantasma:'x'}}]});
+    const dn = nz.estrutura[0].descs;
+    assert('normalizar poda descrições órfãs', dn.p1==='a' && dn.c1==='b' && !('fantasma' in dn));
+
+    const salvoE = state.estrutura;
+    state.estrutura = [{gerado:true, descs:{fantasma:'texto órfão'}}];
+    let perguntou = false; const cf = window.confirm; window.confirm = ()=>{ perguntou = true; return true; };
+    window.switchTab('estrutura');
+    window.removeSecaoGerada();
+    assert('remover seção só com órfãs não pergunta', !perguntou && state.estrutura.length===0);
+    pl0.pins.push({id:'zz-bul', tipoId:'bullet', label:'', qtd:1, x:5, y:5, direcao:0});
+    state.estrutura = [{gerado:true, descs:{'zz-bul':'texto vivo'}}];
+    window.removeSecaoGerada();
+    window.confirm = cf; pl0.pins.length = nPins0;
+    assert('remover seção com desc viva pergunta', perguntou);
+    state.estrutura = salvoE;
+  }
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }

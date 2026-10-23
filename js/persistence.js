@@ -47,6 +47,8 @@ export function normalizarProjeto(loaded){
       if(temGerada) return false;
       temGerada = true;
       if(!g.descs || typeof g.descs!=='object') g.descs = {};
+      const ids = new Set(loaded.plantas.flatMap(pl=>[...pl.pins, ...pl.cercas].map(x=>x.id)));
+      Object.keys(g.descs).forEach(k=>{ if(!ids.has(k)) delete g.descs[k]; });
       return true;
     }
     if(!Array.isArray(g.itens)) g.itens = [];

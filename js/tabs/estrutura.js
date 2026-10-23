@@ -145,7 +145,8 @@ export function setDescGerada(id, valor){
 export function removeSecaoGerada(){
   const gi = state.estrutura.findIndex(g=>g.gerado);
   if(gi<0) return;
-  const temDesc = Object.values(state.estrutura[gi].descs||{}).some(d=>(d||'').trim());
+  const vivos = new Set(gruposGerados().flatMap(g=>g.linhas.map(l=>l.id)));
+  const temDesc = Object.entries(state.estrutura[gi].descs||{}).some(([id,d])=>vivos.has(id) && (d||'').trim());
   if(temDesc && !confirm('Remover a seção gerada? As descrições digitadas nela serão perdidas.')) return;
   state.estrutura.splice(gi,1);
   renderContent();
