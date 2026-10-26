@@ -48,6 +48,33 @@ async function carregarFontesPdf(){
   }catch(e){ /* sem fonte carregada o PDF sai com o fallback — não bloqueia a geração */ }
 }
 
+// O PNG da logo é um quadrado com muita margem vazia (a marca ocupa ~1/4 da altura), então no PDF
+// usamos uma cópia recortada só na marca — senão aumentar a altura do <img> quase não aumenta a logo.
+let logoPdf = BRAND.logo;
+async function prepararLogoPdf(){
+  if(logoPdf !== BRAND.logo) return;
+  try{
+    const img = await new Promise((ok,erro)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=erro; i.src=BRAND.logo; });
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img,0,0);
+    const d = ctx.getImageData(0,0,c.width,c.height).data;
+    let x0=c.width, y0=c.height, x1=-1, y1=-1;
+    for(let y=0;y<c.height;y++) for(let x=0;x<c.width;x++){
+      const k=(y*c.width+x)*4;
+      // pixel "vazio" = transparente ou quase branco
+      if(d[k+3]<20 || (d[k]>235 && d[k+1]>235 && d[k+2]>235)) continue;
+      if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
+    }
+    if(x1<0) return;
+    const r = document.createElement('canvas');
+    r.width = x1-x0+1; r.height = y1-y0+1;
+    r.getContext('2d').drawImage(c, x0,y0,r.width,r.height, 0,0,r.width,r.height);
+    logoPdf = r.toDataURL('image/png');
+  }catch(e){ /* sem recorte o PDF usa o PNG original */ }
+}
+
 function pageShell(inner){
   return `<div style="width:${PW}px;height:${PH}px;position:relative;overflow:hidden;background:#fff;font-family:${FONTE_PDF};">${inner}</div>`;
 }
@@ -62,8 +89,8 @@ function pageHeader(num, title){
     </div>`;
 }
 function footerBrand(){
-  return `<div style="position:absolute;bottom:30px;left:64px;display:flex;align-items:center;gap:10px;color:#8FA3BF;font-size:13px;font-weight:600;">
-    <img src="${BRAND.logo}" style="height:20px;object-fit:contain;">
+  return `<div style="position:absolute;bottom:22px;left:64px;display:flex;align-items:center;gap:14px;color:#8FA3BF;font-size:14px;font-weight:600;">
+    <img src="${logoPdf}" style="height:22px;">
     <span>${BRAND.nome} · ${BRAND.departamento}</span>
   </div>`;
 }
@@ -83,7 +110,7 @@ function pageCapa(){
         <div style="margin-top:14px;font-size:15px;color:#4A5A72;font-weight:700;">${fmtDate(state.projeto.data)}</div>
       </div>
       <div style="position:absolute;left:74px;bottom:64px;">
-        <img src="${BRAND.logo}" style="height:34px;object-fit:contain;">
+        <img src="${logoPdf}" style="height:42px;">
       </div>
     </div>
   `);
@@ -340,7 +367,7 @@ function pageEncerramento(){
     <div style="width:100%;height:100%;position:relative;background:#fff;">
       ${triDecor({size:520, right:-100, top:-140, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.92})}
       <div style="position:absolute;left:74px;top:420px;font-family:${FONTE_PDF};font-weight:800;font-size:52px;color:${BRAND.cor};">${(BRAND.slogan||'').toUpperCase()}</div>
-      <div style="position:absolute;left:74px;bottom:70px;"><img src="${BRAND.logo}" style="height:30px;object-fit:contain;"></div>
+      <div style="position:absolute;left:74px;bottom:70px;"><img src="${logoPdf}" style="height:38px;"></div>
     </div>
   `);
 }
@@ -348,6 +375,7 @@ function pageEncerramento(){
 export async function gerarPDF(){
   showToast('Gerando PDF…');
   await carregarFontesPdf();
+  await prepararLogoPdf();
   const root = document.getElementById('pdf-render-root');
   root.innerHTML = '';
   const gp = pinsGlobais();
