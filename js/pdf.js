@@ -36,7 +36,9 @@ function triDecor({size, right, top=null, bottom=null, background, opacity=1}){
 // ponto mais à esquerda do triângulo decorativo padrão (triDecor size:420, right:-140, top:-160
 // → vértice esquerdo em x≈1134px), com ~30px de folga.
 const MARGEM_DIR_TEXTO = 310;
-const TEXTO_JUST = 'text-align:justify;hyphens:auto;';
+// Sem hyphens:auto de propósito: o navegador quebraria a palavra mas o html2canvas não desenha
+// o hífen automático — no PDF a palavra saía cortada sem traço.
+const TEXTO_JUST = 'text-align:justify;';
 
 function pageShell(inner){
   return `<div style="width:${PW}px;height:${PH}px;position:relative;overflow:hidden;background:#fff;font-family:'Inter',sans-serif;">${inner}</div>`;
