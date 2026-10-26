@@ -111,8 +111,13 @@ export function textoEstruturado(txt){
     return `<div style="${base}margin-bottom:6px;${TEXTO_JUST}">${escHtml(t)}</div>`;
   }).join('');
 }
-// Frase fixa de fechamento da página de Premissas (padrão dos projetos da Segurança Patrimonial)
-export const FRASE_PREMISSAS = '“Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell, assegurando que os analíticos de vídeo gerem alertas proativos e dados estratégicos para a gestão da segurança patrimonial e operacional da unidade.”';
+// "Considerações finais" (aba Premissas): fim da página de Premissas, em itálico e entre aspas.
+// Aspas digitadas pelo usuário nas pontas são removidas para não duplicar; vazio → nada.
+export function consideracoesHtml(){
+  const t = String(state.consideracoes||'').trim().replace(/^["“”]+|["“”]+$/g, '').trim();
+  if(!t) return '';
+  return `<div style="margin-top:28px;font-size:13.5px;line-height:1.55;color:#33415A;font-style:italic;white-space:pre-wrap;${TEXTO_JUST}">“${escHtml(t)}”</div>`;
+}
 
 export function pageObjetivo(){
   return pageShell(`
@@ -317,7 +322,7 @@ export function pagePremissas(){
         <div style="margin-bottom:16px;font-size:14px;line-height:1.55;color:#33415A;${TEXTO_JUST}">
           <b style="color:${BRAND.cor};">${p.titulo}:</b> ${p.desc}
         </div>`).join('')}
-      <div style="margin-top:28px;font-size:13.5px;line-height:1.55;color:#33415A;font-style:italic;${TEXTO_JUST}">${FRASE_PREMISSAS}</div>
+      ${consideracoesHtml()}
     </div>
     ${footerBrand()}
   `);

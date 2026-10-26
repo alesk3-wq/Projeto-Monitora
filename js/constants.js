@@ -57,3 +57,6 @@ export const TABS = [
 ];
 
 export const PW = 1414, PH = 1000;
+
+// Texto inicial da caixa "Considerações finais" (aba Premissas) — sai no PDF em itálico e entre aspas
+export const CONSIDERACOES_PADRAO = 'Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell, assegurando que os analíticos de vídeo gerem alertas proativos e dados estratégicos para a gestão da segurança patrimonial e operacional da unidade.';

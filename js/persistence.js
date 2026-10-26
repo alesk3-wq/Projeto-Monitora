@@ -1,6 +1,7 @@
 import { state, setState, novaPlanta, attachPlantaAlias } from './state.js';
 import { switchTab } from './nav.js';
 import { showToast, novoId } from './utils.js';
+import { CONSIDERACOES_PADRAO } from './constants.js';
 
 export function exportarProjeto(){
   const dataStr = JSON.stringify(state, null, 2);
@@ -24,6 +25,8 @@ export function normalizarProjeto(loaded){
     delete loaded.planta;
   }
   if(!Array.isArray(loaded.plantas) || loaded.plantas.length===0) loaded.plantas = [novaPlanta('Planta 1')];
+  // .json de antes da caixa "Considerações finais": mantém a frase padrão que já saía fixa no PDF
+  if(typeof loaded.consideracoes !== 'string') loaded.consideracoes = CONSIDERACOES_PADRAO;
   loaded.plantaAtiva = Math.max(0, Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1));
   loaded.plantas.forEach((pl,i)=>{
     if(!pl.nome) pl.nome = 'Planta '+(i+1);

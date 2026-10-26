@@ -1,4 +1,5 @@
 import { todayISO } from './utils.js';
+import { CONSIDERACOES_PADRAO } from './constants.js';
 
 export function novaPlanta(nome){
   return { nome, imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[], areas:[], etiquetas:[], selectedAreaCat:'area1' };
@@ -23,6 +24,7 @@ export let state = {
   plantas: [ novaPlanta('Planta 1') ],
   plantaAtiva: 0,
   premissas: [ {titulo:'', desc:''} ],
+  consideracoes: CONSIDERACOES_PADRAO, // texto livre; PDF: itálico entre aspas no fim das Premissas
 };
 attachPlantaAlias(state);
 

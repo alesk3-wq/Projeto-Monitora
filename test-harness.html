@@ -384,7 +384,18 @@ try{
     assert('texto estruturado: subtítulo, 2 itens de lista e parágrafo escapado',
       (h.match(/padding-left:26px/g)||[]).length===2 && h.includes('font-weight:800') && h.includes('Item &lt;B&gt;') && h.includes('Parágrafo &quot;final&quot;.') && !h.includes('- Item'));
     assert('texto estruturado vazio = travessão', PDT.textoEstruturado('  \n ').includes('—'));
-    assert('Premissas: frase fixa do CCOS no fim', PDT.pagePremissas().includes('Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell'));
+    assert('Considerações finais: padrão = frase do CCOS, entre aspas no PDF', PDT.pagePremissas().includes('“Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell'));
+    const salvoC = state.consideracoes;
+    state.consideracoes = '"Texto <livre> do usuário"';
+    const pc = PDT.pagePremissas();
+    assert('Considerações finais: texto digitado, escapado, itálico, sem aspas duplicadas', pc.includes('“Texto &lt;livre&gt; do usuário”') && pc.includes('font-style:italic') && !pc.includes('““'));
+    state.consideracoes = '   ';
+    assert('Considerações finais vazia: nada no PDF', !PDT.pagePremissas().includes('font-style:italic'));
+    const PSn = await import('./js/persistence.js');
+    assert('.json antigo sem consideracoes recebe a frase padrão', PSn.normalizarProjeto({plantas:[{pins:[]}]}).consideracoes.startsWith('Todo o ecossistema'));
+    state.consideracoes = salvoC;
+    window.switchTab('premissas');
+    assert('aba Premissas tem a caixa Considerações finais', document.getElementById('content').innerHTML.includes('Considerações finais'));
   }
 
   // 10. remover a planta 2 renumera

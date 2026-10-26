@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { renderContent } from '../nav.js';
+import { escHtml } from '../utils.js';
 
 export function tplPremissas(){
   const list = state.premissas;
@@ -20,6 +21,11 @@ export function tplPremissas(){
         <button class="btn ghost" onclick="addPremissa()">+ Premissa</button>
         <button class="btn ghost" onclick="addPremissasPadrao()">+ Sugestões padrão</button>
       </div>
+    </div>
+    <div class="card">
+      <label>Considerações finais</label>
+      <textarea style="min-height:90px" placeholder="Texto de fechamento da página de Premissas" oninput="state.consideracoes=this.value">${escHtml(state.consideracoes||'')}</textarea>
+      <div class="hint">Sai no fim da página de Premissas do PDF, em itálico e entre aspas (as aspas são colocadas automaticamente). Deixe vazio para não sair nada.</div>
     </div>
   `;
 }
