@@ -31,7 +31,7 @@ A ferramenta é separada em `index.html` (casca HTML) + `css/style.css` + `asset
 - `html2canvas` 1.4.1 — rasteriza cada "página" da proposta para gerar o PDF
 - `jsPDF` 2.5.1 (UMD) — monta o PDF final a partir das imagens rasterizadas
 - `PDF.js` 3.11.174 (UMD) — usado só para **importar** uma planta baixa enviada em PDF (rasteriza a página escolhida como imagem); não confundir com `jsPDF`/`js/pdf.js`, que geram o PDF de saída da proposta
-- Google Fonts: Inter (corpo) + Barlow Condensed (títulos, mesma família usada no documento de referência)
+- Fontes: **Inter** (Google Fonts) só na interface do app. **No PDF**, tudo usa a família `PdfFonte` (`FONTE_PDF` em `js/pdf.js`): `@font-face` com `local()` em `css/style.css` → **Calibri Light** (texto, peso ≤400) e **Calibri Bold** (títulos/negritos, peso ≥500), instaladas no Windows (pedido do gerente: Calibri Light); onde não há Calibri (celular) cai para **Carlito** (Google Fonts, clone métrico livre da Calibri). `gerarPDF` chama `carregarFontesPdf()` antes de rasterizar. Os tamanhos do PDF foram aumentados ~15% na troca (Calibri é menor que a Inter no mesmo px); badge dos pins (9px) e texto das etiquetas (12px, tamanho estimado em `etqEstimaCaixa`) ficaram como estavam
 
 ### Estrutura de abas (sidebar)
 1. **Dados do Projeto** — unidade/local, equipe/núcleo responsável, endereço, responsável técnico, data

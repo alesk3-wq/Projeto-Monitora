@@ -1,3 +1,9 @@
+  /* Fonte do PDF ('PdfFonte'): Calibri Light (texto) / Calibri Bold (títulos e negritos) instaladas
+     no PC; sem Calibri (ex.: celular) a pilha cai para Carlito (clone métrico livre da Calibri). */
+  @font-face{font-family:'PdfFonte';font-style:normal;font-weight:100 400;src:local('Calibri Light'),local('Calibri-Light');}
+  @font-face{font-family:'PdfFonte';font-style:normal;font-weight:500 900;src:local('Calibri Bold'),local('Calibri-Bold');}
+  @font-face{font-family:'PdfFonte';font-style:italic;font-weight:100 400;src:local('Calibri Light Italic'),local('Calibri-LightItalic');}
+  @font-face{font-family:'PdfFonte';font-style:italic;font-weight:500 900;src:local('Calibri Bold Italic'),local('Calibri-BoldItalic');}
   :root{
     --ui-bg:#0A1B2E; --ui-panel:#12293F; --ui-line:#1E3A54;
     --ui-text:#E7ECF3; --ui-muted:#8FA3BF; --ui-accent:#7CC242; --ui-accent2:#0066B3;
