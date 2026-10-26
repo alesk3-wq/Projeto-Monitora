@@ -32,13 +32,10 @@ function triDecor({size, right, top=null, bottom=null, background, opacity=1}){
   return `<div style="position:absolute;right:${right - L/2}px;${vert}width:${L}px;height:${L}px;transform:rotate(45deg);background:${background};opacity:${opacity};"></div>`;
 }
 
-// Float invisível que faz o texto desviar do triângulo decorativo padrão das páginas internas
-// (triDecor size:420, right:-140, top:-160). Vai como 1º filho de um container de texto com
-// right:64px e top ≈165–170px. shape-outside segue a diagonal do triângulo com ~24px de folga;
-// funciona no PDF porque o html2canvas usa o layout do próprio navegador para posicionar o texto.
-function desviaTriangulo(){
-  return `<div style="float:right;width:240px;height:330px;shape-outside:polygon(91px 0, 240px 0, 240px 330px, 0 90px);"></div>`;
-}
+// Margem direita das colunas de texto (Objetivo, Premissas): coluna reta que termina antes do
+// ponto mais à esquerda do triângulo decorativo padrão (triDecor size:420, right:-140, top:-160
+// → vértice esquerdo em x≈1134px), com ~30px de folga.
+const MARGEM_DIR_TEXTO = 310;
 const TEXTO_JUST = 'text-align:justify;hyphens:auto;';
 
 function pageShell(inner){
@@ -119,8 +116,7 @@ export function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div lang="pt-BR" style="position:absolute;top:170px;left:64px;right:64px;">
-      ${desviaTriangulo()}
+    <div lang="pt-BR" style="position:absolute;top:170px;left:64px;right:${MARGEM_DIR_TEXTO}px;">
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Área a ser Monitorada</div>
       <div style="margin-bottom:34px;">${textoEstruturado(state.objetivo.problema)}</div>
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Diretriz da Proposta</div>
@@ -314,8 +310,7 @@ export function pagePremissas(){
   return pageShell(`
     ${pageHeader('05','Premissas do Projeto')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div lang="pt-BR" style="position:absolute;top:165px;left:64px;right:64px;bottom:70px;overflow:hidden;">
-      ${desviaTriangulo()}
+    <div lang="pt-BR" style="position:absolute;top:165px;left:64px;right:${MARGEM_DIR_TEXTO}px;bottom:70px;overflow:hidden;">
       ${state.premissas.map(p=>`
         <div style="margin-bottom:16px;font-size:14px;line-height:1.55;color:#33415A;${TEXTO_JUST}">
           <b style="color:${BRAND.cor};">${p.titulo}:</b> ${p.desc}
