@@ -142,7 +142,7 @@ state = {
 
 **Pendente de validação humana:** teste de campo no celular (pinch, desenho de área por touch, PDF com áreas, arrastar caixa/ponta de etiqueta por touch) — o deploy no Firebase existe para isso.
 
-**Como o desenvolvimento funciona:** brainstorming → spec → plano detalhado → execução com subagentes (1 implementador + 1 revisor por tarefa + review final da branch). Specs/planos de trabalho **já executado** não ficam no repo — são removidos após a entrega (se precisar consultar, estão no histórico do git). Commits direto na `master` (decisão do usuário, dev solo). Deploy: `firebase deploy --only hosting` com o CLI global — `npx` **não funciona** nesta rede (erro TLS `UNABLE_TO_VERIFY_LEAF_SIGNATURE`); para servir localmente, use um servidor estático próprio em Node em vez de `npx serve`.
+**Como o desenvolvimento funciona:** brainstorming → spec → plano detalhado → execução com subagentes (1 implementador + 1 revisor por tarefa + review final da branch). Specs/planos de trabalho **já executado** não ficam no repo — são removidos após a entrega (se precisar consultar, estão no histórico do git). Commits direto na `master` (decisão do usuário, dev solo). Deploy: `firebase deploy --only hosting` com o CLI global (o `firebase.json` manda `Cache-Control: no-cache` para `.html/.js/.css` — sem isso o navegador segurava o código antigo por 1h após cada deploy e o usuário testava a versão velha) — `npx` **não funciona** nesta rede (erro TLS `UNABLE_TO_VERIFY_LEAF_SIGNATURE`); para servir localmente, use um servidor estático próprio em Node em vez de `npx serve`.
 
 ## Limitações conhecidas (em aberto)
 - Sem múltiplos projetos simultâneos / histórico de versões dentro da própria ferramenta (cada import de `.json` substitui o estado atual)
