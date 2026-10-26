@@ -377,6 +377,16 @@ try{
     state.plantas = salvo;
   }
 
+  // 9e. Objetivo com estrutura (lista/subtítulo/parágrafo) e frase fixa nas Premissas
+  {
+    const PDT = await import('./js/pdf.js');
+    const h = PDT.textoEstruturado('Intro:\n• Item A\n- Item <B>\n\nParágrafo "final".');
+    assert('texto estruturado: subtítulo, 2 itens de lista e parágrafo escapado',
+      (h.match(/padding-left:26px/g)||[]).length===2 && h.includes('font-weight:800') && h.includes('Item &lt;B&gt;') && h.includes('Parágrafo &quot;final&quot;.') && !h.includes('- Item'));
+    assert('texto estruturado vazio = travessão', PDT.textoEstruturado('  \n ').includes('—'));
+    assert('Premissas: frase fixa do CCOS no fim', PDT.pagePremissas().includes('Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell'));
+  }
+
   // 10. remover a planta 2 renumera
   state.plantaAtiva = 1;
   state.plantas.splice(1,1); state.plantaAtiva = 0;

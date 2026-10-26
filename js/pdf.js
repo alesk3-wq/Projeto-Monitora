@@ -96,6 +96,25 @@ function pageSumario(){
     ${footerBrand()}
   `);
 }
+// Texto livre do usuário com a estrutura do modelo de referência: linhas que começam com
+// •, -, * ou – viram itens de lista (marcador + recuo); as demais viram parágrafos justificados;
+// linha em branco vira espaço entre blocos.
+const MARCADOR = /^\s*[•\-*–·]\s+/;
+export function textoEstruturado(txt){
+  const linhas = String(txt||'').replace(/\r/g,'').split('\n');
+  if(!linhas.some(l=>l.trim())) return `<div style="font-size:14.5px;color:#33415A;">—</div>`;
+  const base = 'font-size:14.5px;line-height:1.6;color:#33415A;';
+  return linhas.map(l=>{
+    if(!l.trim()) return `<div style="height:10px;"></div>`;
+    if(MARCADOR.test(l)) return `<div style="${base}position:relative;padding-left:26px;margin:0 0 2px 10px;${TEXTO_JUST}"><span style="position:absolute;left:6px;top:0;">•</span>${escHtml(l.replace(MARCADOR,''))}</div>`;
+    const t = l.trim();
+    if(t.endsWith(':') && t.length<=80) return `<div style="${base}font-weight:800;color:${BRAND.cor};margin:4px 0 6px;">${escHtml(t)}</div>`;
+    return `<div style="${base}margin-bottom:6px;${TEXTO_JUST}">${escHtml(t)}</div>`;
+  }).join('');
+}
+// Frase fixa de fechamento da página de Premissas (padrão dos projetos da Segurança Patrimonial)
+export const FRASE_PREMISSAS = '“Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell, assegurando que os analíticos de vídeo gerem alertas proativos e dados estratégicos para a gestão da segurança patrimonial e operacional da unidade.”';
+
 export function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
@@ -103,9 +122,9 @@ export function pageObjetivo(){
     <div lang="pt-BR" style="position:absolute;top:170px;left:64px;right:64px;">
       ${desviaTriangulo()}
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Área a ser Monitorada</div>
-      <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;margin-bottom:34px;${TEXTO_JUST}">${state.objetivo.problema || '—'}</div>
+      <div style="margin-bottom:34px;">${textoEstruturado(state.objetivo.problema)}</div>
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Diretriz da Proposta</div>
-      <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;${TEXTO_JUST}">${state.objetivo.solucao || '—'}</div>
+      <div>${textoEstruturado(state.objetivo.solucao)}</div>
     </div>
     ${footerBrand()}
   `);
@@ -301,6 +320,7 @@ export function pagePremissas(){
         <div style="margin-bottom:16px;font-size:14px;line-height:1.55;color:#33415A;${TEXTO_JUST}">
           <b style="color:${BRAND.cor};">${p.titulo}:</b> ${p.desc}
         </div>`).join('')}
+      <div style="margin-top:28px;font-size:13.5px;line-height:1.55;color:#33415A;font-style:italic;${TEXTO_JUST}">${FRASE_PREMISSAS}</div>
     </div>
     ${footerBrand()}
   `);
