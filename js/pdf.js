@@ -32,6 +32,15 @@ function triDecor({size, right, top=null, bottom=null, background, opacity=1}){
   return `<div style="position:absolute;right:${right - L/2}px;${vert}width:${L}px;height:${L}px;transform:rotate(45deg);background:${background};opacity:${opacity};"></div>`;
 }
 
+// Float invisível que faz o texto desviar do triângulo decorativo padrão das páginas internas
+// (triDecor size:420, right:-140, top:-160). Vai como 1º filho de um container de texto com
+// right:64px e top ≈165–170px. shape-outside segue a diagonal do triângulo com ~24px de folga;
+// funciona no PDF porque o html2canvas usa o layout do próprio navegador para posicionar o texto.
+function desviaTriangulo(){
+  return `<div style="float:right;width:240px;height:330px;shape-outside:polygon(91px 0, 240px 0, 240px 330px, 0 90px);"></div>`;
+}
+const TEXTO_JUST = 'text-align:justify;hyphens:auto;';
+
 function pageShell(inner){
   return `<div style="width:${PW}px;height:${PH}px;position:relative;overflow:hidden;background:#fff;font-family:'Inter',sans-serif;">${inner}</div>`;
 }
@@ -87,15 +96,16 @@ function pageSumario(){
     ${footerBrand()}
   `);
 }
-function pageObjetivo(){
+export function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div style="position:absolute;top:170px;left:64px;right:64px;">
+    <div lang="pt-BR" style="position:absolute;top:170px;left:64px;right:64px;">
+      ${desviaTriangulo()}
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Área a ser Monitorada</div>
-      <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;margin-bottom:34px;">${state.objetivo.problema || '—'}</div>
+      <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;margin-bottom:34px;${TEXTO_JUST}">${state.objetivo.problema || '—'}</div>
       <div style="font-weight:800;color:${BRAND.cor};font-size:16px;margin-bottom:8px;">Diretriz da Proposta</div>
-      <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;">${state.objetivo.solucao || '—'}</div>
+      <div style="font-size:14.5px;line-height:1.6;color:#33415A;white-space:pre-wrap;${TEXTO_JUST}">${state.objetivo.solucao || '—'}</div>
     </div>
     ${footerBrand()}
   `);
@@ -126,7 +136,7 @@ function estruturaGeradaHtml(){
         <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:15px;">${escHtml(g.titulo)}</div>
       </div>
       ${g.linhas.map(l=>`
-        <div style="font-size:13.5px;color:#33415A;line-height:1.5;margin:0 0 4px 30px;">
+        <div style="font-size:13.5px;color:#33415A;line-height:1.5;margin:0 0 4px 30px;${TEXTO_JUST}">
           <b>${escHtml(l.texto)}</b>${l.desc ? ': '+escHtml(l.desc) : ''}
         </div>`).join('')}
     </div>`).join('');
@@ -159,7 +169,7 @@ export function pageEstrutura(){
         <div style="margin-bottom:20px;">
           <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:15px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
           ${g.itens.map(it=>`
-            <div style="font-size:13.5px;color:#33415A;line-height:1.5;margin-bottom:4px;">
+            <div style="font-size:13.5px;color:#33415A;line-height:1.5;margin-bottom:4px;${TEXTO_JUST}">
               <b>${(parseInt(it.qtd)||0)>=2 ? (parseInt(it.qtd)||0)+'x ' : ''}${it.nome||''}</b>${it.desc?': '+it.desc:''}
             </div>`).join('')}
         </div>`).join('')}
@@ -253,7 +263,7 @@ export function legendaFicha(pin){
   if(!secaoGerada() || !pin?.id) return '';
   const l = gruposGerados().flatMap(g=>g.linhas).find(x=>x.id===pin.id);
   if(!l) return '';
-  return `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;"><b style="color:${BRAND.cor};">${escHtml(l.texto)}</b>${l.desc ? '<br>'+escHtml(l.desc) : ''}</div>`;
+  return `<div style="margin-top:10px;font-size:13px;line-height:1.5;color:#33415A;${TEXTO_JUST}"><b style="color:${BRAND.cor};">${escHtml(l.texto)}</b>${l.desc ? '<br>'+escHtml(l.desc) : ''}</div>`;
 }
 export function pageEquipamento(pin, numero, cropUrl){
   const t = typeById(pin.tipoId);
@@ -281,13 +291,14 @@ export function pageEquipamento(pin, numero, cropUrl){
     ${footerBrand()}
   `);
 }
-function pagePremissas(){
+export function pagePremissas(){
   return pageShell(`
     ${pageHeader('05','Premissas do Projeto')}
     ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div style="position:absolute;top:165px;left:64px;right:64px;bottom:70px;overflow:hidden;">
+    <div lang="pt-BR" style="position:absolute;top:165px;left:64px;right:64px;bottom:70px;overflow:hidden;">
+      ${desviaTriangulo()}
       ${state.premissas.map(p=>`
-        <div style="margin-bottom:16px;font-size:14px;line-height:1.55;color:#33415A;">
+        <div style="margin-bottom:16px;font-size:14px;line-height:1.55;color:#33415A;${TEXTO_JUST}">
           <b style="color:${BRAND.cor};">${p.titulo}:</b> ${p.desc}
         </div>`).join('')}
     </div>
