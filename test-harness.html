@@ -449,6 +449,12 @@ try{
     assert('ficha PDF: título com Ponto N e rótulo escapado', h1.includes('Câmera Bullet — Ponto 2 — Portaria &lt;1&gt;'));
     const h2 = PD2.pageEquipamento({tipoId:'bullet', label:'Câmera Bullet', qtd:1}, 3, null);
     assert('ficha PDF: rótulo igual ao tipo não repete', h2.includes('Câmera Bullet — Ponto 3') && !h2.includes('Ponto 3 — Câmera Bullet'));
+    const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
+    assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',
+      !h3.includes('Foto não anexada') && !h3.includes('Local de Instalação') && !h3.includes('Visualização Esperada') && h3.includes('height:490px') && h3.includes('justify-content:center'));
+    const h4 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1, fotoView:'data:image/png;base64,BBBB'}, 1, 'data:image/png;base64,AAAA');
+    assert('ficha PDF com 1 foto: só o quadro que falta sai, padrão mantido',
+      h4.includes('Visualização Esperada') && !h4.includes('Local de Instalação') && !h4.includes('Foto não anexada') && !h4.includes('height:490px'));
 
     state.plantaAtiva = 0;
     const pl0 = state.plantas[0];

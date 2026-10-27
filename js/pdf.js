@@ -332,22 +332,33 @@ export function pageEquipamento(pin, numero, cropUrl){
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:15px;">${txt}</div>`;
   const legendaItem = legendaFicha(pin);
+  const rotulo = (txt)=>`<div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">${txt}</div>`;
+  // Fotos não anexadas não geram quadro vazio. Sem nenhuma foto, o recorte da planta cresce e fica
+  // centralizado (700×490, proporção do recorte 500×350); com uma foto, as colunas mantêm a largura
+  // do padrão de 3 colunas e só o quadro que falta sai.
+  const soCorte = !pin.fotoLocal && !pin.fotoView;
+  const corteStyle = soCorte ? boxStyle.replace('height:290px;','height:490px;') : boxStyle;
+  const colW = soCorte ? '700px' : `${(PW-128-48)/3}px`;
+  const colunas = [`
+      <div style="width:${colW};flex-shrink:0;">
+        ${rotulo('Localização na Planta')}
+        ${cropUrl ? `<img src="${cropUrl}" style="${corteStyle}">` : `<div style="${corteStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:15px;">Planta não anexada</div>`}
+        ${legendaItem}
+      </div>`];
+  if(pin.fotoLocal) colunas.push(`
+      <div style="width:${colW};flex-shrink:0;">
+        ${rotulo('Local de Instalação')}
+        <img src="${pin.fotoLocal}" style="${boxStyle}">
+      </div>`);
+  if(pin.fotoView) colunas.push(`
+      <div style="width:${colW};flex-shrink:0;">
+        ${rotulo('Visualização Esperada')}
+        <img src="${pin.fotoView}" style="${boxStyle}">
+      </div>`);
   return pageShell(`
     ${pageHeader('04', `${t.label} — Ponto ${numero}` + (pin.label && pin.label!==t.label ? ' — '+escHtml(pin.label) : ''), true)}
-    <div style="position:absolute;top:170px;left:64px;right:64px;bottom:70px;display:flex;gap:24px;">
-      <div style="flex:1;">
-        <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Localização na Planta</div>
-        ${cropUrl ? `<img src="${cropUrl}" style="${boxStyle}">` : placeholder('Planta não anexada')}
-        ${legendaItem}
-      </div>
-      <div style="flex:1;">
-        <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Local de Instalação</div>
-        ${pin.fotoLocal ? `<img src="${pin.fotoLocal}" style="${boxStyle}">` : placeholder('Foto não anexada')}
-      </div>
-      <div style="flex:1;">
-        <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Visualização Esperada</div>
-        ${pin.fotoView ? `<img src="${pin.fotoView}" style="${boxStyle}">` : placeholder('Foto não anexada')}
-      </div>
+    <div style="position:absolute;top:170px;left:64px;right:64px;bottom:70px;display:flex;gap:24px;justify-content:${soCorte?'center':'flex-start'};">
+      ${colunas.join('')}
     </div>
     ${footerBrand()}
   `);
