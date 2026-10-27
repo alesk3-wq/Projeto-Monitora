@@ -1,7 +1,7 @@
 import { state, novaPlanta } from '../state.js';
 import { numeroDoPin } from '../numeracao.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
-import { typeById, fileToDataURL, showToast, novoId, alcanceDe, aberturaFator, ALCANCE_MIN, ALCANCE_MAX } from '../utils.js';
+import { typeById, fileToDataURL, showToast, novoId, alcanceDe, ALCANCE_MIN, ALCANCE_MAX, aberturaDe, fixarAbertura, setorPath, pontoNaDirecao, ABERTURA_MIN, ABERTURA_MAX } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
@@ -11,7 +11,7 @@ export function tplPlanta(){
   const pl = state.planta;
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
-    <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco).</p>
+    <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco, e os pontos nas bordas do arco abrem ou fecham cada lado do foco).</p>
     <div class="card">
       <div class="planta-tabs">
         ${state.plantas.map((pt,i)=>`
@@ -74,7 +74,7 @@ export function tplPlanta(){
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">
             ${typeById(p.tipoId).cameraLike && !typeById(p.tipoId).foco360 ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
-            ${typeById(p.tipoId).ajustaAlcance ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>` : ''}
+            ${typeById(p.tipoId).ajustaAlcance ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>${tplAberturaControles(p, pi)}` : ''}
             <button class="btn danger small" onclick="removePin(${pi})">✕</button>
           </div>
         `).join('')}
@@ -265,22 +265,33 @@ export function afterPlantaRender(){
         circ.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:110px;height:110px;border-radius:50%;transform:translate(-50%,-50%);background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;pointer-events:none;z-index:1;`;
         wrap.appendChild(circ);
       } else if(t.cameraLike){
-        const cone = document.createElement('div');
+        // Foco em setor com a ponta em arco (SVG em px, posição em % — acompanha o zoom)
+        const cone = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         cone.id = 'cone-'+pi;
-        const g = coneEditor(p);
-        cone.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:${g.size}px;height:${g.size}px;transform:translate(-50%,-50%) rotate(${p.direcao||0}deg);transform-origin:50% 50%;clip-path:${g.clip};background:${t.color}55;pointer-events:none;z-index:1;`;
+        cone.innerHTML = `<path fill="${t.color}55" stroke="${t.color}" stroke-opacity="0.85" stroke-width="1.5"/>`;
+        cone.style.cssText = 'position:absolute;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;z-index:1;';
         wrap.appendChild(cone);
 
-        const R = g.R;
-        const rad = (p.direcao||0) * Math.PI/180;
-        const hx = R*Math.sin(rad), hy = -R*Math.cos(rad);
         const handle = document.createElement('div');
         handle.id = 'rothandle-'+pi;
         handle.className = 'planta-rothandle';
         handle.title = t.ajustaAlcance ? 'Arraste para girar a direção; afaste ou aproxime do ícone para mudar o alcance' : 'Arraste para girar a direção';
-        handle.style.cssText = `position:absolute;left:calc(${p.x}% + ${hx}px);top:calc(${p.y}% + ${hy}px);border-radius:50%;background:#fff;border:2.5px solid ${t.color};transform:translate(-50%,-50%);cursor:grab;z-index:4;box-shadow:0 1px 3px rgba(0,0,0,.45);touch-action:none;`;
+        handle.style.cssText = `position:absolute;border-radius:50%;background:#fff;border:2.5px solid ${t.color};transform:translate(-50%,-50%);cursor:grab;z-index:4;box-shadow:0 1px 3px rgba(0,0,0,.45);touch-action:none;`;
         handle.onpointerdown = (e)=>startRotateDrag(e, pi);
         wrap.appendChild(handle);
+        if(t.ajustaAlcance){
+          // Bullet/Dome: um ponto em cada borda do arco abre/fecha aquele lado do foco
+          ['esq','dir'].forEach(lado=>{
+            const h = document.createElement('div');
+            h.id = `abhandle-${lado}-${pi}`;
+            h.className = 'planta-abhandle';
+            h.title = 'Arraste para abrir ou fechar este lado do foco';
+            h.style.cssText = `position:absolute;border-radius:50%;background:${t.color};border:2px solid #fff;transform:translate(-50%,-50%);cursor:grab;z-index:4;box-shadow:0 1px 3px rgba(0,0,0,.45);touch-action:none;`;
+            h.onpointerdown = (e)=>startAberturaDrag(e, pi, lado);
+            wrap.appendChild(h);
+          });
+        }
+        posicionarFoco(pi);
       }
       const pin = document.createElement('div');
       pin.id = 'pinicon-'+pi;
@@ -314,9 +325,17 @@ export function startPinDrag(e, pi){
 }
 export function startRotateDrag(e, pi){
   e.preventDefault(); e.stopPropagation();
+  fixarAbertura(state.planta.pins[pi]);
   dragState = {type:'rotate', index:pi};
   const el = document.getElementById('rothandle-'+pi);
   if(el) el.style.cursor = 'grabbing';
+  document.addEventListener('pointermove', onPointerDrag);
+  document.addEventListener('pointerup', endPointerDrag);
+}
+export function startAberturaDrag(e, pi, lado){
+  e.preventDefault(); e.stopPropagation();
+  fixarAbertura(state.planta.pins[pi]);
+  dragState = {type:'abertura', index:pi, lado};
   document.addEventListener('pointermove', onPointerDrag);
   document.addEventListener('pointerup', endPointerDrag);
 }
@@ -353,14 +372,25 @@ export function onPointerDrag(e){
     const cx = rect.left + (pin.x/100)*rect.width;
     const cy = rect.top + (pin.y/100)*rect.height;
     const dx = e.clientX - cx, dy = e.clientY - cy;
-    let deg = Math.atan2(dx, -dy) * 180/Math.PI;
-    if(deg < 0) deg += 360;
-    pin.direcao = Math.round(deg);
+    // o ponto fica no meio do arco: com abertura assimétrica a direção é o ângulo do ponteiro menos o desvio do meio
+    const ab = aberturaDe(pin);
+    let deg = Math.atan2(dx, -dy) * 180/Math.PI - (ab.dir - ab.esq)/2;
+    deg = ((deg % 360) + 360) % 360;
+    pin.direcao = Math.round(deg) % 360;
     // Bullet/Dome: a distância do ponto ao ícone define o alcance (o ponto fica na ponta do cone)
     if(typeById(pin.tipoId).ajustaAlcance){
       const a = (Math.hypot(dx, dy) - 3) / CONE_L0;
       pin.alcance = Math.round(Math.min(ALCANCE_MAX, Math.max(ALCANCE_MIN, a))*100)/100;
     }
+  } else if(dragState.type==='abertura'){
+    // ângulo do ponteiro em relação à direção da câmera → abertura daquele lado
+    const cx = rect.left + (pin.x/100)*rect.width;
+    const cy = rect.top + (pin.y/100)*rect.height;
+    const ang = Math.atan2(e.clientX - cx, -(e.clientY - cy)) * 180/Math.PI;
+    let rel = ((ang - (pin.direcao||0)) % 360 + 540) % 360 - 180; // -180..180, + = horário
+    if(dragState.lado==='esq') rel = -rel;
+    const v = Math.round(Math.min(ABERTURA_MAX, Math.max(ABERTURA_MIN, rel)));
+    if(dragState.lado==='esq') pin.abEsq = v; else pin.abDir = v;
   }
   updatePinDOM(pi);
 }
@@ -384,23 +414,35 @@ export function endPointerDrag(){
 export function updatePinDOM(pi){
   const pin = state.planta.pins[pi];
   const pinEl = document.getElementById('pinicon-'+pi);
-  const coneEl = document.getElementById('cone-'+pi);
-  const handleEl = document.getElementById('rothandle-'+pi);
   if(pinEl){ pinEl.style.left = pin.x+'%'; pinEl.style.top = pin.y+'%'; }
   const t = typeById(pin.tipoId);
-  const g = (t.cameraLike && !t.foco360) ? coneEditor(pin) : null;
+  if(t.cameraLike && !t.foco360){ posicionarFoco(pi); return; }
+  const coneEl = document.getElementById('cone-'+pi);
+  if(coneEl){ coneEl.style.left = pin.x+'%'; coneEl.style.top = pin.y+'%'; }
+}
+// Redesenha o setor do foco e reposiciona os pontos (ponta = direção/alcance, bordas = abertura)
+function posicionarFoco(pi){
+  const pin = state.planta.pins[pi];
+  const L = CONE_L0*alcanceDe(pin), ab = aberturaDe(pin), dir = pin.direcao||0;
+  const coneEl = document.getElementById('cone-'+pi);
   if(coneEl){
+    const S = 2*L + 4, c = S/2;
+    coneEl.setAttribute('width', S); coneEl.setAttribute('height', S);
     coneEl.style.left = pin.x+'%'; coneEl.style.top = pin.y+'%';
-    coneEl.style.transform = `translate(-50%,-50%) rotate(${pin.direcao||0}deg)`;
-    if(g){ coneEl.style.width = coneEl.style.height = g.size+'px'; coneEl.style.clipPath = g.clip; }
+    const path = coneEl.querySelector('path');
+    if(path) path.setAttribute('d', setorPath(c, c, L, dir, ab));
   }
-  if(handleEl){
-    const R = g ? g.R : 58;
-    const rad = (pin.direcao||0) * Math.PI/180;
-    const hx = R*Math.sin(rad), hy = -R*Math.cos(rad);
-    handleEl.style.left = `calc(${pin.x}% + ${hx}px)`;
-    handleEl.style.top = `calc(${pin.y}% + ${hy}px)`;
-  }
+  const coloca = (el, r, deg)=>{
+    if(!el) return;
+    const q = pontoNaDirecao(0, 0, r, deg);
+    el.style.left = `calc(${pin.x}% + ${q.x}px)`;
+    el.style.top = `calc(${pin.y}% + ${q.y}px)`;
+  };
+  // ponto da ponta no meio do arco, mas nunca colado no ícone (fica pegável no alcance mínimo)
+  coloca(document.getElementById('rothandle-'+pi), Math.max(L+3, 44), dir + (ab.dir - ab.esq)/2);
+  const rb = Math.max(L, 40);
+  coloca(document.getElementById('abhandle-esq-'+pi), rb, dir-ab.esq);
+  coloca(document.getElementById('abhandle-dir-'+pi), rb, dir+ab.dir);
 }
 export function syncPinRowControls(){
   state.planta.pins.forEach((p,pi)=>{
@@ -411,6 +453,11 @@ export function syncPinRowControls(){
     const as = document.getElementById('alcslider-'+pi), al = document.getElementById('alclabel-'+pi);
     if(as) as.value = Math.round(alcanceDe(p)*100);
     if(al) al.textContent = Math.round(alcanceDe(p)*100)+'%';
+    const ab = aberturaDe(p);
+    const ae = document.getElementById('abesq-'+pi), ad = document.getElementById('abdir-'+pi), alb = document.getElementById('ablabel-'+pi);
+    if(ae) ae.value = Math.round(ab.esq);
+    if(ad) ad.value = Math.round(ab.dir);
+    if(alb) alb.textContent = Math.round(ab.esq+ab.dir)+'°';
   });
 }
 
@@ -442,29 +489,34 @@ export function zoomPlanta(delta){
 export function resetZoom(){ aplicarZoomAncorado(100); }
 export function liveUpdateCone(pi, deg){
   state.planta.pins[pi].direcao = parseInt(deg);
-  const el = document.getElementById('cone-'+pi);
-  if(el) el.style.transform = `translate(-50%,-50%) rotate(${deg}deg)`;
   const lbl = document.getElementById('deglabel-'+pi);
   if(lbl) lbl.textContent = deg+'°';
   updatePinDOM(pi);
 }
 
 export function liveUpdateAlcance(pi, pct){
+  fixarAbertura(state.planta.pins[pi]);
   state.planta.pins[pi].alcance = parseInt(pct)/100;
   const lbl = document.getElementById('alclabel-'+pi);
   if(lbl) lbl.textContent = parseInt(pct)+'%';
   updatePinDOM(pi);
 }
-// Cone do editor: caixa quadrada 2L centrada no pin, recortada por clip-path (vértice no centro, base
-// no topo). Padrão L=55px e meio-ângulo ≈25.6°; o alcance multiplica L e aberturaFator estreita/abre.
-const CONE_L0 = 55, CONE_MEIO0 = Math.atan(26.4/55);
-function coneEditor(pin){
-  const a = alcanceDe(pin);
-  const L = CONE_L0*a, w = L*Math.tan(CONE_MEIO0*aberturaFator(a));
-  const p = (w/(2*L))*100;
-  // ponto na ponta do cone, mas nunca colado no ícone (fica pegável no alcance mínimo)
-  return { size: 2*L, clip: `polygon(50% 50%, ${50-p}% 0%, ${50+p}% 0%)`, R: Math.max(L+3, 44) };
+// Sliders de abertura (lado esquerdo / direito) na linha do pin — Bullet/Dome
+function tplAberturaControles(p, pi){
+  const ab = aberturaDe(p);
+  const sl = (lado, v)=>`<input id="ab${lado}-${pi}" type="range" min="${ABERTURA_MIN}" max="${ABERTURA_MAX}" value="${Math.round(v)}" title="Abertura do lado ${lado==='esq'?'esquerdo':'direito'}" style="width:60px;margin-bottom:0;" oninput="liveUpdateAbertura(${pi}, '${lado}', this.value)">`;
+  return `<span style="font-size:11px;color:var(--text-mid);">Abertura E/D</span>${sl('esq', ab.esq)}${sl('dir', ab.dir)}<span id="ablabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${Math.round(ab.esq+ab.dir)}°</span>`;
 }
+export function liveUpdateAbertura(pi, lado, deg){
+  const pin = state.planta.pins[pi];
+  fixarAbertura(pin);
+  if(lado==='esq') pin.abEsq = parseInt(deg); else pin.abDir = parseInt(deg);
+  const ab = aberturaDe(pin), lbl = document.getElementById('ablabel-'+pi);
+  if(lbl) lbl.textContent = Math.round(ab.esq+ab.dir)+'°';
+  updatePinDOM(pi);
+}
+// Comprimento padrão do foco no editor (px); o alcance (Bullet/Dome) multiplica.
+const CONE_L0 = 55;
 
 export function removePin(pi){ state.planta.pins.splice(pi,1); renderContent(); }
 

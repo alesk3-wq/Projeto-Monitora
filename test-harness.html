@@ -472,12 +472,39 @@ try{
       const U = await import('./js/utils.js');
       const tb = U.typeById('bullet'), tl = U.typeById('lpr');
       assert('alcance: padrão 1, limitado 0.7–1.8, LPR ignora', U.alcanceDe({tipoId:'bullet'})===1 && U.alcanceDe({tipoId:'dome',alcance:5})===1.8 && U.alcanceDe({tipoId:'bullet',alcance:0.1})===0.7 && U.alcanceDe({tipoId:'lpr',alcance:1.8})===1);
-      const c1 = PD2.coneMapeamento({tipoId:'bullet',direcao:0}, tb, 0, 0);
-      const c2 = PD2.coneMapeamento({tipoId:'bullet',direcao:0,alcance:1.8}, tb, 0, 0);
-      const num = (h,k)=>parseFloat(h.match(new RegExp(k+':([0-9.]+)px'))[1]);
-      assert('cone do PDF: padrão igual ao de antes (72/34px)', Math.abs(num(c1,'border-top')-72)<0.01 && Math.abs(num(c1,'border-left')-34)<0.01);
-      assert('cone do PDF: alcance maior = mais comprido e proporcionalmente mais estreito', num(c2,'border-top')>120 && num(c2,'border-left')/num(c2,'border-top') < 34/72);
-      assert('cone do PDF: LPR não muda com alcance', PD2.coneMapeamento({tipoId:'lpr',direcao:0,alcance:1.8}, tl, 0, 0)===PD2.coneMapeamento({tipoId:'lpr',direcao:0}, tl, 0, 0));
+      const cn = h=>h.match(/data-cone="([^"]+)"/)[1].split('|').map(Number);
+      const c1 = cn(PD2.coneMapeamento({tipoId:'bullet',direcao:0}, tb, 0, 0));
+      const c2 = cn(PD2.coneMapeamento({tipoId:'bullet',direcao:0,alcance:1.8}, tb, 0, 0));
+      const c3 = cn(PD2.coneMapeamento({tipoId:'dome',direcao:0,alcance:1.8,abEsq:10,abDir:70}, tb, 0, 0));
+      assert('cone do PDF: padrão 72px, 25° de cada lado, imagem (sem clip-path)', c1[0]===72 && c1[1]===25 && c1[2]===25 && PD2.coneMapeamento({tipoId:'bullet'}, tb, 0, 0).includes('<img src="data:image/png'));
+      assert('cone do PDF: pin antigo com alcance maior = mais comprido e mais estreito', c2[0]>120 && c2[1]<25);
+      assert('cone do PDF: abertura assimétrica gravada no pin (alcance não estreita mais)', c3[1]===10 && c3[2]===70);
+      assert('cone do PDF: LPR não muda com alcance/abertura', PD2.coneMapeamento({tipoId:'lpr',direcao:0,alcance:1.8,abEsq:5,abDir:80}, tl, 0, 0)===PD2.coneMapeamento({tipoId:'lpr',direcao:0}, tl, 0, 0));
+      const pf = {tipoId:'bullet', alcance:1.8}; U.fixarAbertura(pf);
+      const pl2 = {tipoId:'lpr'}; U.fixarAbertura(pl2);
+      assert('fixarAbertura: grava a abertura atual (Bullet), ignora LPR', pf.abEsq===20 && pf.abDir===20 && pl2.abEsq===undefined);
+      assert('abertura: limitada 5–80°', U.aberturaDe({tipoId:'bullet',abEsq:1,abDir:200}).esq===5 && U.aberturaDe({tipoId:'bullet',abEsq:1,abDir:200}).dir===80);
+      // editor: setor em SVG com arco + 3 pontos; arrastar o ponto direito abre só o lado direito
+      const pl0 = state.plantas[0], svImg = pl0.imagem, svPins = pl0.pins, svAtiva = state.plantaAtiva, svZoom = pl0.zoom;
+      const cvE = document.createElement('canvas'); cvE.width = 400; cvE.height = 400;
+      pl0.imagem = cvE.toDataURL('image/png'); pl0.zoom = 100;
+      pl0.pins = [{id:'ab1', tipoId:'bullet', label:'X', qtd:1, x:50, y:50, direcao:0}];
+      state.plantaAtiva = 0; window.switchTab('planta'); await waitImg();
+      const path = document.querySelector('#cone-0 path')?.getAttribute('d') || '';
+      assert('editor: foco em arco (SVG) com pontos da ponta e das bordas', path.includes(' A') && document.getElementById('rothandle-0') && document.getElementById('abhandle-esq-0') && document.getElementById('abhandle-dir-0'));
+      const r = document.getElementById('plantaImg').getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2, rad = 60*Math.PI/180;
+      document.getElementById('abhandle-dir-0').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, clientX:cx, clientY:cy-50}));
+      document.dispatchEvent(new PointerEvent('pointermove', {clientX:cx+50*Math.sin(rad), clientY:cy-50*Math.cos(rad)}));
+      document.dispatchEvent(new PointerEvent('pointerup', {}));
+      assert('editor: arrastar a borda direita abre só o lado direito', pl0.pins[0].abDir===60 && pl0.pins[0].abEsq===25 && document.getElementById('abdir-0')?.value==='60' && document.getElementById('ablabel-0')?.textContent==='85°');
+      // ponto da ponta fica no meio do arco: arrastá-lo para 107.5° com abertura 25/60 → direção 90°
+      const r2 = 107.5*Math.PI/180;
+      document.getElementById('rothandle-0').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, clientX:cx, clientY:cy-50}));
+      document.dispatchEvent(new PointerEvent('pointermove', {clientX:cx+58*Math.sin(r2), clientY:cy-58*Math.cos(r2)}));
+      document.dispatchEvent(new PointerEvent('pointerup', {}));
+      assert('editor: ponto da ponta no meio do arco gira mantendo a abertura', pl0.pins[0].direcao===90 && pl0.pins[0].abDir===60 && pl0.pins[0].abEsq===25);
+      pl0.imagem = svImg; pl0.pins = svPins; pl0.zoom = svZoom; state.plantaAtiva = svAtiva;
     }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');

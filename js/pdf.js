@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { numeroDoPin, pontosPorTipo, trechosCerca } from './numeracao.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
-import { showToast, fmtDate, typeById, areaCatById, escHtml, alcanceDe, aberturaFator } from './utils.js';
+import { showToast, fmtDate, typeById, areaCatById, escHtml, alcanceDe, aberturaDe } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
 import { gruposGerados, secaoGerada } from './tabs/estrutura.js';
@@ -308,14 +308,22 @@ function legendaMapeamento(pl, li){
       </div>`;
   return {html, h};
 }
-// Cone de câmera direcional no Mapeamento (técnica de bordas transparentes — html2canvas não faz
-// clip-path): padrão 72px de comprimento e meio-ângulo atan(34/72); o alcance (Bullet/Dome)
-// multiplica o comprimento e aberturaFator estreita/abre, como no editor.
-const CONE_PDF_L0 = 72, CONE_PDF_MEIO0 = Math.atan(34/72);
+// Foco de câmera direcional no Mapeamento: setor com a ponta em arco desenhado num canvas e
+// emitido como <img> (html2canvas não faz clip-path e o SVG inline é instável). Padrão 72px de
+// comprimento; alcance (Bullet/Dome) multiplica o comprimento e a abertura de cada lado vem do pin.
+export const CONE_PDF_L0 = 72;
 export function coneMapeamento(p, t, left, top){
-  const a = alcanceDe(p);
-  const L = CONE_PDF_L0*a, w = L*Math.tan(CONE_PDF_MEIO0*aberturaFator(a));
-  return `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:${w}px solid transparent;border-right:${w}px solid transparent;border-top:${L}px solid ${t.color}66;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>`;
+  const L = CONE_PDF_L0*alcanceDe(p), ab = aberturaDe(p);
+  const S = Math.ceil(2*L + 4), c = S/2, K = 2; // K: canvas em 2x para ficar nítido no PDF
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S*K;
+  const ctx = cv.getContext('2d');
+  ctx.scale(K, K);
+  const a0 = ((p.direcao||0) - ab.esq - 90)*Math.PI/180, a1 = ((p.direcao||0) + ab.dir - 90)*Math.PI/180;
+  ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, L, a0, a1); ctx.closePath();
+  ctx.fillStyle = t.color+'66'; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = t.color+'CC'; ctx.stroke();
+  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}" style="position:absolute;left:${left-c}px;top:${top-c}px;width:${S}px;height:${S}px;">`;
 }
 function pageMapeamento(pl, dims, titulo, li){
   // planta logo abaixo do cabeçalho (top 155) até o rodapé (y 940), descontando a legenda
