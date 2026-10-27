@@ -23,19 +23,10 @@ function containRect(imgW, imgH, boxW, boxH){
   const w = imgW*scale, h = imgH*scale;
   return { x:(boxW-w)/2, y:(boxH-h)/2, w, h };
 }
-// Triângulo decorativo compatível com html2canvas (clip-path é ignorado na rasterização):
-// quadrado rotacionado 45° cuja aresta superior coincide com a hipotenusa do antigo
-// clip-path:polygon(100% 0,100% 100%,0 100%). Passar os mesmos size/right/top|bottom do div antigo.
-function triDecor({size, right, top=null, bottom=null, background, opacity=1}){
-  const L = size*Math.SQRT2;
-  const vert = top!==null ? `top:${top + size - L/2}px;` : `bottom:${bottom - L/2}px;`;
-  return `<div style="position:absolute;right:${right - L/2}px;${vert}width:${L}px;height:${L}px;transform:rotate(45deg);background:${background};opacity:${opacity};"></div>`;
-}
-
 // Margem direita das colunas de texto (Objetivo, Premissas): coluna reta que termina antes do
-// ponto mais à esquerda do triângulo decorativo padrão (triDecor size:420, right:-140, top:-160
-// → vértice esquerdo em x≈1134px), com ~30px de folga.
-const MARGEM_DIR_TEXTO = 310;
+// canto verde/azul (cantoArte) — abaixo de y≈200 a borda da arte fica em x≥1236 e a ponta azul em
+// x≈1265 (y≈330); texto até x=1234.
+const MARGEM_DIR_TEXTO = 180;
 // Sem hyphens:auto de propósito: o navegador quebraria a palavra mas o html2canvas não desenha
 // o hífen automático — no PDF a palavra saía cortada sem traço.
 const TEXTO_JUST = 'text-align:justify;';
@@ -78,15 +69,34 @@ async function prepararLogoPdf(){
 function pageShell(inner){
   return `<div style="width:${PW}px;height:${PH}px;position:relative;overflow:hidden;background:#fff;font-family:${FONTE_PDF};">${inner}</div>`;
 }
-function pageHeader(num, title){
+// Layout copiado do documento de referência (Projeto 089-110926 Rev3.1): as artes de fundo
+// (foto + formas da capa, foto + formas do sumário, canto verde/azul das páginas de texto) foram
+// renderizadas do PDF original sem o texto e ficam em assets/pdf/; posições e tamanhos dos textos
+// abaixo foram medidos no mesmo PDF (página 1414×1000).
+const ARTE = { capa:'assets/pdf/capa.jpg', sumario:'assets/pdf/sumario.jpg', canto:'assets/pdf/canto.jpg' };
+const COR_TEXTO_REF = '#231F20';
+// Texto posicionado pela linha de base (x, base em px da página), como medido no PDF de referência.
+// Com line-height:1 a base da Calibri/Carlito cai ~0.85em abaixo do topo da caixa no html2canvas
+// (medido sobrepondo o render ao PDF de referência).
+function txtBase(x, base, size, css, html){
+  return `<div style="position:absolute;left:${x}px;top:${base - size*0.85}px;font-size:${size}px;line-height:1;white-space:nowrap;color:${COR_TEXTO_REF};${css}">${html}</div>`;
+}
+// Canto verde/azul do topo direito (páginas Objetivo, Estrutura, Premissas e Encerramento)
+function cantoArte(){
+  return `<img src="${ARTE.canto}" style="position:absolute;left:1020px;top:0;width:394px;height:500px;">`;
+}
+// Logo do rodapé no tamanho/posição do modelo (páginas de texto)
+function logoRodape(){
+  return `<img src="${logoPdf}" style="position:absolute;left:41px;top:901px;width:192px;">`;
+}
+// Cabeçalho de seção do modelo: círculo cinza com o número + título preto sobre um fio fino.
+// alto=false → posição das páginas Objetivo/Estrutura; alto=true → Mapeamento/fichas/Premissas.
+function pageHeader(num, title, alto=false){
+  const dx = alto ? -7 : 0, dy = alto ? -82 : 0;
   return `
-    <div style="position:absolute;top:50px;left:64px;display:flex;align-items:center;gap:20px;">
-      <div style="width:60px;height:60px;border-radius:50%;background:${BRAND.corSecundaria};color:#fff;display:flex;align-items:center;justify-content:center;font-family:${FONTE_PDF};font-weight:800;font-size:22px;">${num}</div>
-      <div>
-        <div style="font-family:${FONTE_PDF};font-weight:800;font-size:32px;color:${BRAND.cor};">${title}</div>
-        <div style="width:110px;height:4px;background:${BRAND.corAcento};margin-top:6px;"></div>
-      </div>
-    </div>`;
+    <div style="position:absolute;left:${74+dx}px;top:${147.5+dy}px;width:78.5px;height:78.5px;border-radius:50%;background:#D9D9D9;display:flex;align-items:center;justify-content:center;font-size:38.3px;color:${COR_TEXTO_REF};">${num}</div>
+    <div style="position:absolute;left:${152.5+dx}px;top:${187+dy}px;width:268px;height:1.2px;background:${COR_TEXTO_REF};"></div>
+    ${txtBase(167+dx, 172+dy, 31.1, 'font-weight:700;', title)}`;
 }
 function footerBrand(){
   return `<div style="position:absolute;bottom:22px;left:64px;display:flex;align-items:center;gap:14px;color:#8FA3BF;font-size:14px;font-weight:600;">
@@ -96,38 +106,33 @@ function footerBrand(){
 }
 
 function pageCapa(){
+  // Fundo = capa do modelo sem texto (foto, formas azuis, pontilhado verde e logo já fazem parte da arte);
+  // a caixa azul da unidade é desenhada aqui para crescer com nomes longos.
+  const data = fmtDate(state.projeto.data).split(' | ').join(', ');
   return pageShell(`
-    <div style="width:100%;height:100%;background:#fff;position:relative;">
-      ${triDecor({size:760, right:-110, bottom:-160, background:BRAND.cor, opacity:.97})}
-      ${triDecor({size:480, right:-30, bottom:-90, background:BRAND.corSecundaria, opacity:.9})}
-      <div style="position:absolute;left:74px;top:56px;font-size:14px;letter-spacing:1.5px;font-weight:800;color:${BRAND.cor};text-transform:uppercase;">PROJETO SEG. ELETRÔNICA</div>
-      <div style="position:absolute;left:74px;top:78px;font-size:13px;letter-spacing:1px;font-weight:700;color:#8FA3BF;text-transform:uppercase;">DEPTO. ${BRAND.departamento.toUpperCase()}</div>
-      <div style="position:absolute;left:74px;top:300px;max-width:640px;">
-        <div style="color:#111;font-family:${FONTE_PDF};font-weight:800;font-size:64px;line-height:.95;">PROJETO<br>SEG. ELETRÔNICA</div>
-        <div style="display:inline-block;margin-top:24px;background:${BRAND.corSecundaria};color:#fff;padding:10px 22px;border-radius:6px;font-weight:800;font-size:20px;">${state.projeto.unidade || 'Unidade não definida'}</div>
-        <div style="margin-top:24px;font-weight:800;font-size:17px;color:#111;">DEPTO. ${BRAND.departamento.toUpperCase()}</div>
-        <div style="font-size:16px;color:#4A5A72;">${state.projeto.equipe||''}</div>
-        <div style="margin-top:14px;font-size:15px;color:#4A5A72;font-weight:700;">${fmtDate(state.projeto.data)}</div>
-      </div>
-      <div style="position:absolute;left:74px;bottom:64px;">
-        <img src="${logoPdf}" style="height:42px;">
-      </div>
-    </div>
+    <img src="${ARTE.capa}" style="position:absolute;left:0;top:0;width:${PW}px;height:${PH}px;">
+    ${txtBase(53.2, 467, 77.8, 'font-weight:700;', 'PROJETO')}
+    ${txtBase(53.2, 557, 59.4, 'font-weight:700;', 'SEG. ELETRÔNICA')}
+    <div style="position:absolute;left:65px;top:599.5px;min-width:412.5px;max-width:560px;min-height:54.5px;box-sizing:border-box;padding:4px 32px 9px;background:#2152A1;color:#fff;font-size:23.8px;line-height:1.15;display:flex;align-items:center;">${escHtml(state.projeto.unidade || 'Unidade não definida')}</div>
+    ${txtBase(59.3, 711, 39.2, 'font-weight:700;', 'DEPTO. '+escHtml(BRAND.departamento.toUpperCase()))}
+    ${txtBase(59.3, 754, 29.6, '', escHtml(state.projeto.equipe||''))}
+    ${data ? txtBase(59.3, 833, 29.6, '', `<b style="font-weight:700;">Data:</b>${escHtml(data)}`) : ''}
   `);
 }
 function pageSumario(){
-  const items = [['01','Problema & Solução'],['02','Mapeamento'],['03','Estrutura'],['04','Fichas de Equipamentos'],['05','Premissas']];
+  // Fundo = sumário do modelo sem a lista (o modelo tem 4 itens; aqui são 5). A lista segue a
+  // geometria do modelo: círculos de 77px a cada 85px, o 1º preto, os demais cinza, fio até x=433.
+  const items = [['01','Objetivo do Projeto'],['02','Mapeamento'],['03','Estrutura'],['04','Fichas de Equipamentos'],['05','Premissas']];
   return pageShell(`
-    ${triDecor({size:560, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.92})}
-    <div style="padding:70px 74px;">
-      <div style="font-family:${FONTE_PDF};font-weight:800;font-size:40px;color:${BRAND.cor};margin-bottom:34px;">Sumário</div>
-      ${items.map(([n,l])=>`
-        <div style="display:flex;align-items:center;gap:18px;margin-bottom:18px;max-width:520px;">
-          <div style="width:40px;height:40px;border-radius:50%;background:#EDEFF3;color:${BRAND.cor};display:flex;align-items:center;justify-content:center;font-family:${FONTE_PDF};font-weight:800;font-size:19px;flex-shrink:0;">${n}</div>
-          <div style="font-size:20px;color:${BRAND.cor};font-weight:600;border-bottom:1px solid #E3E8EF;flex:1;padding-bottom:14px;">${l}</div>
-        </div>`).join('')}
-    </div>
-    ${footerBrand()}
+    <img src="${ARTE.sumario}" style="position:absolute;left:0;top:0;width:${PW}px;height:${PH}px;">
+    ${txtBase(127.9, 192, 43.4, "font-family:Arial,'Liberation Sans',sans-serif;", 'Sumário')}
+    ${items.map(([n,l],i)=>{
+      const cy = 311 + i*85;
+      return `
+      <div style="position:absolute;left:100px;top:${cy-38.5}px;width:77px;height:77px;border-radius:50%;background:${i===0?'#000':'#D9D9D9'};color:${i===0?'#fff':COR_TEXTO_REF};display:flex;align-items:center;justify-content:center;font-size:36.9px;">${n}</div>
+      <div style="position:absolute;left:177px;top:${cy}px;width:256px;height:1.2px;background:#616161;"></div>
+      ${txtBase(190.3, cy-17, 20.8, '', l)}`;
+    }).join('')}
   `);
 }
 // Texto livre do usuário com a estrutura do modelo de referência: linhas que começam com
@@ -136,14 +141,14 @@ function pageSumario(){
 const MARCADOR = /^\s*[•\-*–·]\s+/;
 export function textoEstruturado(txt){
   const linhas = String(txt||'').replace(/\r/g,'').split('\n');
-  if(!linhas.some(l=>l.trim())) return `<div style="font-size:17px;color:#33415A;">—</div>`;
-  const base = 'font-size:17px;line-height:1.6;color:#33415A;';
+  if(!linhas.some(l=>l.trim())) return `<div style="font-size:20px;color:${COR_TEXTO_REF};">—</div>`;
+  const base = `font-size:20px;line-height:1.42;color:${COR_TEXTO_REF};`;
   return linhas.map(l=>{
     if(!l.trim()) return `<div style="height:10px;"></div>`;
-    if(MARCADOR.test(l)) return `<div style="${base}position:relative;padding-left:26px;margin:0 0 2px 10px;${TEXTO_JUST}"><span style="position:absolute;left:6px;top:0;">•</span>${escHtml(l.replace(MARCADOR,''))}</div>`;
+    if(MARCADOR.test(l)) return `<div style="${base}position:relative;padding-left:34px;margin:0;${TEXTO_JUST}"><span style="position:absolute;left:17px;top:0;">•</span>${escHtml(l.replace(MARCADOR,''))}</div>`;
     const t = l.trim();
-    if(t.endsWith(':') && t.length<=80) return `<div style="${base}font-weight:800;color:${BRAND.cor};margin:4px 0 6px;">${escHtml(t)}</div>`;
-    return `<div style="${base}margin-bottom:6px;${TEXTO_JUST}">${escHtml(t)}</div>`;
+    if(t.endsWith(':') && t.length<=80) return `<div style="${base}font-weight:700;margin:4px 0 8px;">${escHtml(t)}</div>`;
+    return `<div style="${base}margin-bottom:8px;${TEXTO_JUST}">${escHtml(t)}</div>`;
   }).join('');
 }
 // "Considerações finais" (aba Premissas): fim da página de Premissas, em itálico e entre aspas.
@@ -151,20 +156,20 @@ export function textoEstruturado(txt){
 export function consideracoesHtml(){
   const t = String(state.consideracoes||'').trim().replace(/^["“”]+|["“”]+$/g, '').trim();
   if(!t) return '';
-  return `<div style="margin-top:28px;font-size:15.5px;line-height:1.55;color:#33415A;font-style:italic;white-space:pre-wrap;${TEXTO_JUST}">“${escHtml(t)}”</div>`;
+  return `<div style="margin-top:40px;font-size:16.8px;line-height:1.38;color:${COR_TEXTO_REF};font-style:italic;white-space:pre-wrap;${TEXTO_JUST}">“${escHtml(t)}”</div>`;
 }
 
 export function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
-    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div lang="pt-BR" style="position:absolute;top:170px;left:64px;right:${MARGEM_DIR_TEXTO}px;">
-      <div style="font-weight:800;color:${BRAND.cor};font-size:18px;margin-bottom:8px;">Área a ser Monitorada</div>
+    ${cantoArte()}
+    <div lang="pt-BR" style="position:absolute;top:225px;left:114px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;">
+      <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:20px;margin-bottom:10px;">Área a ser Monitorada:</div>
       <div style="margin-bottom:34px;">${textoEstruturado(state.objetivo.problema)}</div>
-      <div style="font-weight:800;color:${BRAND.cor};font-size:18px;margin-bottom:8px;">Diretriz da Proposta</div>
+      <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:20px;margin-bottom:10px;">Diretriz da Proposta:</div>
       <div>${textoEstruturado(state.objetivo.solucao)}</div>
     </div>
-    ${footerBrand()}
+    ${logoRodape()}
   `);
 }
 // Todos os pins de todas as plantas, na ordem da Estrutura: por tipo (EQUIP_TYPES) e, dentro do tipo, pelo número
@@ -190,10 +195,10 @@ function estruturaGeradaHtml(){
     <div style="margin-bottom:20px;">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
         <div style="width:20px;height:20px;border-radius:50%;background:${typeById(g.tipoId).color};flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[g.tipoId]}</div>
-        <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:17px;">${escHtml(g.titulo)}</div>
+        <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:19px;">${escHtml(g.titulo)}</div>
       </div>
       ${g.linhas.map(l=>`
-        <div style="font-size:15.5px;color:#33415A;line-height:1.5;margin:0 0 4px 30px;${TEXTO_JUST}">
+        <div style="font-size:17px;color:${COR_TEXTO_REF};line-height:1.45;margin:0 0 4px 30px;${TEXTO_JUST}">
           <b>${escHtml(l.texto)}</b>${l.desc ? ': '+escHtml(l.desc) : ''}
         </div>`).join('')}
     </div>`).join('');
@@ -220,22 +225,22 @@ export function pageEstrutura(){
     `;
   return pageShell(`
     ${pageHeader('03','Estrutura')}
-    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div style="position:absolute;top:165px;left:64px;right:530px;bottom:70px;overflow:hidden;">
+    ${cantoArte()}
+    <div style="position:absolute;top:235px;left:114px;right:530px;bottom:110px;overflow:hidden;">
       ${state.estrutura.map(g=> g.gerado ? estruturaGeradaHtml() : `
         <div style="margin-bottom:20px;">
-          <div style="font-weight:800;color:${BRAND.corSecundaria};font-size:17px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
+          <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:19px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
           ${g.itens.map(it=>`
-            <div style="font-size:15.5px;color:#33415A;line-height:1.5;margin-bottom:4px;${TEXTO_JUST}">
+            <div style="font-size:17px;color:${COR_TEXTO_REF};line-height:1.45;margin-bottom:4px;${TEXTO_JUST}">
               <b>${(parseInt(it.qtd)||0)>=2 ? (parseInt(it.qtd)||0)+'x ' : ''}${it.nome||''}</b>${it.desc?': '+it.desc:''}
             </div>`).join('')}
         </div>`).join('')}
     </div>
-    <div style="position:absolute;top:165px;right:64px;width:440px;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:10px;padding:20px;">
+    <div style="position:absolute;top:440px;right:64px;width:440px;max-height:450px;overflow:hidden;box-sizing:border-box;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:10px;padding:20px;">
       <div style="font-weight:800;color:${BRAND.cor};font-size:17px;margin-bottom:14px;">Legenda — Equipamentos na Planta</div>
       ${blocos.trim()==='' ? `<div style="font-size:15px;color:#8FA3BF;">Nenhum equipamento posicionado.</div>` : blocos}
     </div>
-    ${footerBrand()}
+    ${logoRodape()}
   `);
 }
 // Planta sem nenhum conteúdo (em projetos multi-planta não gera página de Mapeamento)
@@ -303,7 +308,7 @@ function pageMapeamento(pl, dims, titulo, li){
     return `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${cat.color}38;border:2px solid ${cat.color};border-radius:4px;box-sizing:border-box;"><span style="position:absolute;top:2px;left:2px;background:${cat.color};color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:3px;">${cat.label}</span></div>`;
   }).join('');
   return pageShell(`
-    ${pageHeader('02', titulo)}
+    ${pageHeader('02', titulo, true)}
     <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
       ${pl.imagem ? `<div style="width:100%;height:100%;background-image:url('${pl.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:16px;">Planta não anexada</div>`}
       ${areasHtml}
@@ -328,8 +333,7 @@ export function pageEquipamento(pin, numero, cropUrl){
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:15px;">${txt}</div>`;
   const legendaItem = legendaFicha(pin);
   return pageShell(`
-    ${pageHeader(String(numero), `${t.label} — Ponto ${numero}` + (pin.label && pin.label!==t.label ? ' — '+escHtml(pin.label) : ''))}
-    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
+    ${pageHeader('04', `${t.label} — Ponto ${numero}` + (pin.label && pin.label!==t.label ? ' — '+escHtml(pin.label) : ''), true)}
     <div style="position:absolute;top:170px;left:64px;right:64px;bottom:70px;display:flex;gap:24px;">
       <div style="flex:1;">
         <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Localização na Planta</div>
@@ -350,25 +354,23 @@ export function pageEquipamento(pin, numero, cropUrl){
 }
 export function pagePremissas(){
   return pageShell(`
-    ${pageHeader('05','Premissas do Projeto')}
-    ${triDecor({size:420, right:-140, top:-160, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.85})}
-    <div lang="pt-BR" style="position:absolute;top:165px;left:64px;right:${MARGEM_DIR_TEXTO}px;bottom:70px;overflow:hidden;">
+    ${pageHeader('05','Premissas do Projeto', true)}
+    ${cantoArte()}
+    <div lang="pt-BR" style="position:absolute;top:205px;left:97px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;">
       ${state.premissas.map(p=>`
-        <div style="margin-bottom:16px;font-size:16px;line-height:1.55;color:#33415A;${TEXTO_JUST}">
-          <b style="color:${BRAND.cor};">${p.titulo}:</b> ${p.desc}
+        <div style="margin-bottom:26px;font-size:19px;line-height:1.36;color:${COR_TEXTO_REF};${TEXTO_JUST}">
+          <b style="font-weight:700;">${p.titulo}:</b> ${p.desc}
         </div>`).join('')}
       ${consideracoesHtml()}
     </div>
-    ${footerBrand()}
+    ${logoRodape()}
   `);
 }
 function pageEncerramento(){
   return pageShell(`
-    <div style="width:100%;height:100%;position:relative;background:#fff;">
-      ${triDecor({size:520, right:-100, top:-140, background:`linear-gradient(90deg, ${BRAND.corAcento}, ${BRAND.corSecundaria})`, opacity:.92})}
-      <div style="position:absolute;left:74px;top:420px;font-family:${FONTE_PDF};font-weight:800;font-size:52px;color:${BRAND.cor};">${(BRAND.slogan||'').toUpperCase()}</div>
-      <div style="position:absolute;left:74px;bottom:70px;"><img src="${logoPdf}" style="height:38px;"></div>
-    </div>
+    ${cantoArte()}
+    ${txtBase(138.2, 567, 128, 'font-weight:700;', (BRAND.slogan||'').toUpperCase())}
+    ${logoRodape()}
   `);
 }
 

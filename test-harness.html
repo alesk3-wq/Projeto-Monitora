@@ -382,7 +382,7 @@ try{
     const PDT = await import('./js/pdf.js');
     const h = PDT.textoEstruturado('Intro:\n• Item A\n- Item <B>\n\nParágrafo "final".');
     assert('texto estruturado: subtítulo, 2 itens de lista e parágrafo escapado',
-      (h.match(/padding-left:26px/g)||[]).length===2 && h.includes('font-weight:800') && h.includes('Item &lt;B&gt;') && h.includes('Parágrafo &quot;final&quot;.') && !h.includes('- Item'));
+      (h.match(/padding-left:34px/g)||[]).length===2 && h.includes('font-weight:700') && h.includes('Item &lt;B&gt;') && h.includes('Parágrafo &quot;final&quot;.') && !h.includes('- Item'));
     assert('texto estruturado vazio = travessão', PDT.textoEstruturado('  \n ').includes('—'));
     assert('Considerações finais: padrão = frase do CCOS, entre aspas no PDF', PDT.pagePremissas().includes('“Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell'));
     const salvoC = state.consideracoes;
