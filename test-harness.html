@@ -453,12 +453,20 @@ try{
       const salvoP = state.premissas;
       const mk = ()=>{ const d=document.createElement('div'); d.style.cssText='position:absolute;left:-99999px;top:0;'; d.innerHTML=PD2.pagePremissas(); document.body.appendChild(d); return d; };
       state.premissas = [{titulo:'Curta', desc:'texto curto'}];
-      let d = mk(); const ok1 = PD2.ajustarFluxo(d) && !!d.querySelector('[data-logo-grande]'); d.remove();
+      let d = mk(); const ok1 = PD2.ajustarFluxo(d) && !d.querySelector('[data-fluxo-inner]').style.transform; d.remove();
       state.premissas = Array.from({length:12}, (_,i)=>({titulo:'Premissa '+i, desc:'Texto longo de teste para ocupar bastante espaço na página de premissas do projeto. '.repeat(3)}));
-      d = mk(); const ok2 = PD2.ajustarFluxo(d) && !d.querySelector('[data-logo-grande]') && d.querySelector('[data-fluxo-inner]').style.transform.includes('scale('); d.remove();
+      d = mk(); const ok2 = PD2.ajustarFluxo(d) && d.querySelector('[data-fluxo-inner]').style.transform.includes('scale('); d.remove();
       state.premissas = salvoP;
-      assert('texto curto: página intacta com logo grande', ok1);
-      assert('texto longo: logo grande vira rodapé pequeno e o texto é reduzido até caber', ok2);
+      assert('texto curto: página intacta (sem redução)', ok1);
+      assert('texto longo: texto reduzido até caber', ok2);
+    }
+    {
+      const sv0 = {pins: state.plantas[0].pins, areas: state.plantas[0].areas};
+      state.plantas[0].pins = [{id:'m1',tipoId:'bullet',qtd:1,x:10,y:10},{id:'m2',tipoId:'bullet',qtd:2,x:20,y:20}];
+      state.plantas[0].areas = [{catId:'area1',descricao:'Área crítica',x:1,y:1,w:5,h:5}];
+      const lr = PD2.legendaResumo(0);
+      assert('legenda do Mapeamento: só a planta pedida, soma de qtd', lr.length===1 && lr[0].tipoId==='bullet' && lr[0].qtd===3);
+      state.plantas[0].pins = sv0.pins; state.plantas[0].areas = sv0.areas;
     }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');

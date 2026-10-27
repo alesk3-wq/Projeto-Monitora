@@ -85,9 +85,10 @@ function txtBase(x, base, size, css, html){
 function cantoArte(){
   return `<img src="${ARTE.canto}" style="position:absolute;left:1020px;top:0;width:394px;height:500px;">`;
 }
-// Logo do rodapé no tamanho/posição do modelo (páginas de texto)
+// Logo grande do rodapé no tamanho/posição do modelo — só no Encerramento; as páginas internas
+// usam o rodapé pequeno (footerBrand) em todas, para ficarem iguais entre si
 function logoRodape(){
-  return `<img data-logo-grande src="${logoPdf}" style="position:absolute;left:41px;top:901px;height:46px;">`;
+  return `<img src="${logoPdf}" style="position:absolute;left:41px;top:901px;height:46px;">`;
 }
 // Cabeçalho de seção do modelo: círculo cinza com o número + título preto sobre um fio fino.
 // alto=false → posição das páginas Objetivo/Estrutura; alto=true → Mapeamento/fichas/Premissas.
@@ -172,13 +173,13 @@ export function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
     ${cantoArte()}
-    <div data-fluxo lang="pt-BR" style="position:absolute;top:225px;left:114px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;"><div data-fluxo-inner>
+    <div data-fluxo lang="pt-BR" style="position:absolute;top:225px;left:114px;right:${MARGEM_DIR_TEXTO}px;bottom:60px;overflow:hidden;"><div data-fluxo-inner>
       <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:20px;margin-bottom:10px;">Área a ser Monitorada:</div>
       <div style="margin-bottom:34px;">${textoEstruturado(state.objetivo.problema)}</div>
       <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:20px;margin-bottom:10px;">Diretriz da Proposta:</div>
       <div>${textoEstruturado(state.objetivo.solucao)}</div>
     </div></div>
-    ${logoRodape()}
+    ${footerBrand()}
   `);
 }
 // Todos os pins de todas as plantas, na ordem da Estrutura: por tipo (EQUIP_TYPES) e, dentro do tipo, pelo número
@@ -189,12 +190,14 @@ function pinsGlobais(){
 }
 // Legenda da página Estrutura: resumo do projeto inteiro, uma linha por tipo
 // (NN = soma de qtd, ordem de EQUIP_TYPES); cercas contam os trechos traçados.
-export function legendaResumo(){
+// Com li (índice da planta) resume só aquela planta — usado na legenda do Mapeamento.
+export function legendaResumo(li=null){
+  const daPlanta = pt => li===null || pt.plantaIdx===li;
   const out = pontosPorTipo().map(g=>({
     tipoId: g.tipo.id,
-    qtd: g.pontos.reduce((s,pt)=>s+(parseInt(pt.pin.qtd)||1), 0),
-  }));
-  const nTrechos = trechosCerca().length;
+    qtd: g.pontos.filter(daPlanta).reduce((s,pt)=>s+(parseInt(pt.pin.qtd)||1), 0),
+  })).filter(l=>l.qtd>0);
+  const nTrechos = trechosCerca().filter(daPlanta).length;
   if(nTrechos) out.push({tipoId:'cerca', qtd:nTrechos});
   return out;
 }
@@ -235,7 +238,7 @@ export function pageEstrutura(){
   return pageShell(`
     ${pageHeader('03','Estrutura')}
     ${cantoArte()}
-    <div data-fluxo style="position:absolute;top:235px;left:114px;right:530px;bottom:110px;overflow:hidden;"><div data-fluxo-inner>
+    <div data-fluxo style="position:absolute;top:235px;left:114px;right:530px;bottom:60px;overflow:hidden;"><div data-fluxo-inner>
       ${state.estrutura.map(g=> g.gerado ? estruturaGeradaHtml() : `
         <div style="margin-bottom:20px;">
           <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:19px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
@@ -249,7 +252,7 @@ export function pageEstrutura(){
       <div style="font-weight:800;color:${BRAND.cor};font-size:17px;margin-bottom:14px;">Legenda — Equipamentos na Planta</div>
       ${blocos.trim()==='' ? `<div style="font-size:15px;color:#8FA3BF;">Nenhum equipamento posicionado.</div>` : blocos}
     </div>
-    ${logoRodape()}
+    ${footerBrand()}
   `);
 }
 // Planta sem nenhum conteúdo (em projetos multi-planta não gera página de Mapeamento)
@@ -285,8 +288,30 @@ export function etiquetasHtml(pl, rect){
   });
   return linhas.join('') + caixas.join('');
 }
+// Legenda embaixo da planta no Mapeamento (só os itens daquela planta): equipamentos em 4 colunas,
+// áreas em 2. Altura estimada pelo nº de linhas para a planta ocupar o resto da página.
+function legendaMapeamento(pl, li){
+  const eq = legendaResumo(li), areas = pl.areas||[];
+  if(!eq.length && !areas.length) return {html:'', h:0};
+  const h = 24 + 28 + Math.ceil(eq.length/4)*26 + Math.ceil(areas.length/2)*44;
+  const html = `
+      <div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;">Legenda</div>
+      <div style="display:flex;flex-wrap:wrap;row-gap:8px;">
+        ${eq.map(l=>`<div style="width:25%;display:flex;gap:8px;align-items:center;">
+          <div style="width:18px;height:18px;border-radius:50%;background:${typeById(l.tipoId).color};flex-shrink:0;display:flex;align-items:center;justify-content:center;">${ICONS[l.tipoId]}</div>
+          <div style="font-size:14px;color:${COR_TEXTO_REF};font-weight:700;">${String(l.qtd).padStart(2,'0')}x — ${typeById(l.tipoId).label}</div>
+        </div>`).join('')}
+        ${areas.map(a=>{ const cat = areaCatById(a.catId); return `<div style="width:50%;display:flex;gap:8px;align-items:flex-start;box-sizing:border-box;padding-right:16px;">
+          <div style="width:14px;height:14px;border-radius:3px;background:${cat.color}66;border:2px solid ${cat.color};margin-top:2px;flex-shrink:0;"></div>
+          <div style="font-size:14px;color:${COR_TEXTO_REF};line-height:1.35;"><b>${cat.label}</b>${a.descricao ? ' — '+escHtml(a.descricao) : ''}</div>
+        </div>`; }).join('')}
+      </div>`;
+  return {html, h};
+}
 function pageMapeamento(pl, dims, titulo, li){
-  const BOX_W = PW - 128, BOX_H = 770; // container: left/right:64, height:770
+  // planta logo abaixo do cabeçalho (top 155) até o rodapé (y 940), descontando a legenda
+  const leg = legendaMapeamento(pl, li);
+  const TOP = 155, BOX_W = PW - 128, BOX_H = 940 - TOP - (leg.h ? leg.h + 12 : 0);
   const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
   const pinsHtml = pl.pins.map((p,pi)=>{
     const t = typeById(p.tipoId);
@@ -318,13 +343,14 @@ function pageMapeamento(pl, dims, titulo, li){
   }).join('');
   return pageShell(`
     ${pageHeader('02', titulo, true)}
-    <div style="position:absolute;top:165px;left:64px;right:64px;height:770px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
+    <div style="position:absolute;top:${TOP}px;left:64px;right:64px;height:${BOX_H}px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
       ${pl.imagem ? `<div style="width:100%;height:100%;background-image:url('${pl.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:16px;">Planta não anexada</div>`}
       ${areasHtml}
       ${cercaHtml}
       ${pinsHtml}
       ${etiquetasHtml(pl, rect)}
     </div>
+    ${leg.h ? `<div style="position:absolute;left:64px;right:64px;top:${TOP+BOX_H+12}px;height:${leg.h}px;box-sizing:border-box;overflow:hidden;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:8px;padding:12px 16px;">${leg.html}</div>` : ''}
     ${footerBrand()}
   `);
 }
@@ -376,14 +402,14 @@ export function pagePremissas(){
   return pageShell(`
     ${pageHeader('05','Premissas do Projeto', true)}
     ${cantoArte()}
-    <div data-fluxo lang="pt-BR" style="position:absolute;top:205px;left:97px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;"><div data-fluxo-inner>
+    <div data-fluxo lang="pt-BR" style="position:absolute;top:205px;left:97px;right:${MARGEM_DIR_TEXTO}px;bottom:60px;overflow:hidden;"><div data-fluxo-inner>
       ${state.premissas.map(p=>`
         <div style="margin-bottom:26px;font-size:19px;line-height:1.36;color:${COR_TEXTO_REF};${TEXTO_JUST}">
           <b style="font-weight:700;">${p.titulo}:</b> ${p.desc}
         </div>`).join('')}
       ${consideracoesHtml()}
     </div></div>
-    ${logoRodape()}
+    ${footerBrand()}
   `);
 }
 function pageEncerramento(){
@@ -394,16 +420,12 @@ function pageEncerramento(){
   `);
 }
 
-// Páginas de texto (Objetivo, Estrutura, Premissas): se o conteúdo não cabe acima da logo grande,
-// 1) troca a logo grande pelo rodapé pequeno e o texto desce até 60px do fim; 2) se ainda não couber,
-// reduz o bloco de texto proporcionalmente (transform:scale, até 70%). Retorna false se nem assim coube.
+// Páginas de texto (Objetivo, Estrutura, Premissas): se o conteúdo não cabe na área de texto, reduz o
+// bloco proporcionalmente (transform:scale, até 70%). Retorna false se nem assim coube.
 export function ajustarFluxo(pagina){
   const box = pagina.querySelector('[data-fluxo]'), inner = box && box.querySelector('[data-fluxo-inner]');
   if(!inner) return true;
   const cabe = ()=> inner.getBoundingClientRect().height <= box.clientHeight + 1;
-  if(cabe()) return true;
-  const logo = pagina.querySelector('[data-logo-grande]');
-  if(logo){ logo.outerHTML = footerBrand(); box.style.bottom = '60px'; }
   if(cabe()) return true;
   inner.style.transformOrigin = '0 0';
   let s = 1;
