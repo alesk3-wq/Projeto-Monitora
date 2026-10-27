@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { ehEquipamento } from './utils.js';
 import { resumoEstrutura } from './tabs/estrutura.js';
 
 export const CHECKS = [
@@ -18,7 +19,7 @@ export function validarProposta(){
   if(!state.plantas.some(pl=>pl.imagem)) pend.push({campo:'planta', msg:'Nenhuma planta baixa anexada (aba 02)'});
   const { temItens } = resumoEstrutura();
   if(!temItens) pend.push({campo:'estrutura', msg:'Nenhum equipamento na Estrutura (aba 03)'});
-  const semFoto = state.plantas.reduce((s,pl)=>s+pl.pins.filter(p=>!p.fotoLocal || !p.fotoView).length, 0);
+  const semFoto = state.plantas.reduce((s,pl)=>s+pl.pins.filter(p=>ehEquipamento(p) && (!p.fotoLocal || !p.fotoView)).length, 0);
   if(semFoto>0) pend.push({campo:'fichas', msg:`${semFoto} equipamento(s) sem foto do local e/ou da visualização (aba 04)`});
   const temPremissa = state.premissas.some(p=>(p.titulo||'').trim() || (p.desc||'').trim());
   if(!temPremissa) pend.push({campo:'premissas', msg:'Nenhuma premissa cadastrada (aba 05)'});

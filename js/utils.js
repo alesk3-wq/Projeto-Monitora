@@ -22,6 +22,8 @@ export function fileToDataURL(file){
 }
 
 export function typeById(id){ return EQUIP_TYPES.find(t=>t.id===id) || EQUIP_TYPES[EQUIP_TYPES.length-1]; }
+// Pin de equipamento (conta, numera, gera ficha) — itens de cenário (portão, poste…) não
+export function ehEquipamento(pin){ return !typeById(pin.tipoId).cenario; }
 
 // Alcance do foco (Bullet/Dome — tipos com ajustaAlcance): fator sobre o comprimento padrão do cone.
 // Mais longe = cone mais comprido e um pouco mais estreito (câmera inclinada para a frente); mais

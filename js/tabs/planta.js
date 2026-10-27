@@ -1,6 +1,6 @@
 import { state, novaPlanta } from '../state.js';
 import { numeroDoPin } from '../numeracao.js';
-import { EQUIP_TYPES, ICONS } from '../constants.js';
+import { EQUIP_TYPES, ICONS, CATEGORIAS_INSERIR } from '../constants.js';
 import { typeById, fileToDataURL, showToast, novoId, alcanceDe, ALCANCE_MIN, ALCANCE_MAX, aberturaDe, fixarAbertura, setorPath, pontoNaDirecao, ABERTURA_MIN, ABERTURA_MAX } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
@@ -27,10 +27,7 @@ export function tplPlanta(){
       <input type="file" accept="image/*,application/pdf,.pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
       <div class="hint">PDF com mais de uma página: você escolhe qual usar.</div>
       <div class="toolbar-types">
-        ${EQUIP_TYPES.map(t=>`
-          <button class="type-btn ${pl.selectedTipo===t.id?'active':''}" onclick="selectTipo('${t.id}')">
-            <span class="icon-dot" style="background:${t.color}">${ICONS[t.id]}</span>${t.label}
-          </button>`).join('')}
+        ${tplMenuInserir(pl)}
         <button class="type-btn ${pl.selectedTipo==='area'?'active':''}" onclick="selectTipo('area')">
           <span class="icon-dot" style="background:#5A6B82">▧</span>Demarcar Área
         </button>
@@ -67,9 +64,12 @@ export function tplPlanta(){
         ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
-            <b style="font-size:12px;color:var(--text-mid);width:18px;">${numeroDoPin(state.plantaAtiva, pi)}</b>
+            <b style="font-size:12px;color:var(--text-mid);width:18px;">${typeById(p.tipoId).cenario ? '' : numeroDoPin(state.plantaAtiva, pi)}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
-              ${EQUIP_TYPES.filter(t=>t.id!=='cerca' || p.tipoId==='cerca').map(t=>`<option value="${t.id}" ${t.id===p.tipoId?'selected':''}>${t.label}</option>`).join('')}
+              ${CATEGORIAS_INSERIR.map(c=>{
+                const ops = c.tipos.filter(id=>id!=='cerca' || p.tipoId==='cerca');
+                return ops.length ? `<optgroup label="${c.label}">${ops.map(id=>`<option value="${id}" ${id===p.tipoId?'selected':''}>${typeById(id).label}</option>`).join('')}</optgroup>` : '';
+              }).join('')}
             </select>
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">
@@ -123,6 +123,35 @@ export function removePlanta(i){
   state.plantaAtiva = Math.max(0, Math.min(state.plantaAtiva, state.plantas.length-1));
   renderContent();
 }
+// Menu "Inserir": botão que abre um painel com os tipos agrupados por categoria (CATEGORIAS_INSERIR).
+// Painel por clique (não por hover) para funcionar no toque; fecha ao escolher ou ao tocar fora.
+function tplMenuInserir(pl){
+  const sel = EQUIP_TYPES.find(t=>t.id===pl.selectedTipo);
+  return `
+    <div class="inserir-wrap">
+      <button class="type-btn inserir-btn" onclick="toggleMenuInserir()">＋ Inserir ▾</button>
+      <div id="menuInserir" class="inserir-menu">
+        ${CATEGORIAS_INSERIR.map(c=>`
+          <div class="inserir-sec">
+            <div class="inserir-titulo">${c.label}</div>
+            <div class="inserir-itens">
+              ${c.tipos.map(id=>{ const t = typeById(id); return `
+                <button class="type-btn ${pl.selectedTipo===id?'active':''}" onclick="selectTipo('${id}')">
+                  <span class="icon-dot" style="background:${t.color}">${ICONS[id]}</span>${t.label}
+                </button>`; }).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${sel ? `<span class="type-btn active inserir-atual" onclick="toggleMenuInserir()" title="Item selecionado — clique na planta para posicionar"><span class="icon-dot" style="background:${sel.color}">${ICONS[sel.id]}</span>${sel.label}</span>` : ''}`;
+}
+export function toggleMenuInserir(){
+  document.getElementById('menuInserir')?.classList.toggle('open');
+}
+document.addEventListener('pointerdown', e=>{
+  const m = document.getElementById('menuInserir');
+  if(m && m.classList.contains('open') && !e.target.closest('.inserir-wrap, .inserir-atual')) m.classList.remove('open');
+});
 export function selectTipo(id){
   if(state.planta.selectedTipo==='cerca' && id!=='cerca') tracoAtual = null;
   state.planta.selectedTipo = id;
@@ -298,7 +327,7 @@ export function afterPlantaRender(){
       pin.className = 'planta-pin';
       pin.title = 'Arraste para reposicionar';
       pin.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:3;cursor:grab;touch-action:none;`;
-      pin.innerHTML = ICONS[t.id] + `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(state.plantaAtiva, pi)}</span>`;
+      pin.innerHTML = ICONS[t.id] + (t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(state.plantaAtiva, pi)}</span>`);
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
     });

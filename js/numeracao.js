@@ -18,9 +18,11 @@ export function numeroDoPin(plantaIdx, pinIdx){
 }
 
 // Só tipos com ao menos um pin, na ordem de EQUIP_TYPES; pontos em ordem de número.
-export function pontosPorTipo(){
+// Itens de cenário (portão, poste…) ficam de fora, salvo incluirCenario (legendas).
+export function pontosPorTipo(incluirCenario=false){
   const out = [];
   EQUIP_TYPES.forEach(tipo=>{
+    if(tipo.cenario && !incluirCenario) return;
     const pontos = [];
     state.plantas.forEach((pl,plantaIdx)=>pl.pins.forEach((pin,pinIdx)=>{
       if(pin.tipoId===tipo.id) pontos.push({pin, plantaIdx, pinIdx, numero: pontos.length+1});

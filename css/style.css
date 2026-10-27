@@ -62,6 +62,15 @@
   .toolbar-types{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
   .type-btn{display:flex;align-items:center;gap:7px;border:1.5px solid #D6DDE7;background:#fff;border-radius:20px;padding:6px 12px 6px 6px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--text-mid);}
   .type-btn.active{border-color:var(--text-dark);background:#0A2E5C;color:#fff;}
+  .inserir-wrap{position:relative;}
+  .inserir-btn{padding:6px 14px;font-weight:700;color:var(--text-dark);border-color:var(--text-dark);}
+  .inserir-menu{display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:60;width:min(620px, 88vw);max-height:65vh;overflow:auto;background:#fff;border:1px solid #D6DDE7;border-radius:12px;box-shadow:0 10px 30px rgba(10,46,92,.18);padding:12px 14px;}
+  .inserir-menu.open{display:block;}
+  .inserir-sec{padding:6px 0 10px;border-bottom:1px solid #EEF1F5;}
+  .inserir-sec:last-child{border-bottom:0;padding-bottom:2px;}
+  .inserir-titulo{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-mid);margin-bottom:7px;}
+  .inserir-itens{display:flex;flex-wrap:wrap;gap:6px;}
+  .inserir-atual{cursor:pointer;}
   .icon-dot{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   #plantaScroll{max-height:560px;overflow:auto;border:2px dashed #C7D0DD;border-radius:10px;background:#fff;}
   #plantaImg{width:100%;display:block;cursor:crosshair;}

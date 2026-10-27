@@ -506,6 +506,30 @@ try{
       assert('editor: ponto da ponta no meio do arco gira mantendo a abertura', pl0.pins[0].direcao===90 && pl0.pins[0].abDir===60 && pl0.pins[0].abEsq===25);
       pl0.imagem = svImg; pl0.pins = svPins; pl0.zoom = svZoom; state.plantaAtiva = svAtiva;
     }
+    {
+      // menu Inserir por categorias + itens de cenário (portão/porta/janela/poste)
+      const C2 = await import('./js/constants.js'), U2 = await import('./js/utils.js'), N2 = await import('./js/numeracao.js'), V2 = await import('./js/validacao.js');
+      const pl0 = state.plantas[0], svImg = pl0.imagem, svPins = pl0.pins, svAtiva = state.plantaAtiva;
+      const cvM = document.createElement('canvas'); cvM.width = 300; cvM.height = 200;
+      pl0.imagem = cvM.toDataURL('image/png');
+      pl0.pins = [{id:'q1',tipoId:'bullet',label:'B',qtd:1,x:20,y:20,direcao:0},{id:'q2',tipoId:'poste',label:'Poste',qtd:1,x:40,y:40},{id:'q3',tipoId:'portao',label:'Portão',qtd:1,x:60,y:60}];
+      state.plantaAtiva = 0; window.switchTab('planta'); await waitImg();
+      const titulos = [...document.querySelectorAll('#menuInserir .inserir-titulo')].map(e=>e.textContent);
+      assert('menu Inserir: categorias na ordem, com Aberturas e Estruturas', titulos.join('|')==='Câmeras|Controle de acesso|Sistema de alarme|Perímetro|Aberturas|Estruturas|Outros');
+      const todos = C2.CATEGORIAS_INSERIR.flatMap(c=>c.tipos);
+      assert('menu Inserir: todo tipo aparece uma vez', C2.EQUIP_TYPES.every(t=>todos.filter(id=>id===t.id).length===1) && todos.length===C2.EQUIP_TYPES.length);
+      const mi = document.getElementById('menuInserir');
+      window.toggleMenuInserir(); const abriu = mi.classList.contains('open');
+      document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}));
+      assert('menu Inserir: abre no botão e fecha ao tocar fora', abriu && !mi.classList.contains('open'));
+      assert('typeById: desconhecido ainda cai em Outro', U2.typeById('xyz').id==='outro');
+      assert('cenário: sem badge de número no editor', document.querySelector('#pinicon-1 span')===null && document.querySelector('#pinicon-0 span')?.textContent==='1');
+      assert('cenário: fora de pontosPorTipo (fichas/Estrutura), dentro com incluirCenario', N2.pontosPorTipo().every(g=>!g.tipo.cenario) && N2.pontosPorTipo(true).some(g=>g.tipo.id==='poste'));
+      assert('cenário: entra na legenda do Mapeamento', PD2.legendaResumo(0).some(l=>l.tipoId==='poste') && PD2.legendaResumo(0).some(l=>l.tipoId==='portao'));
+      const pend = V2.validarProposta().find(p=>p.campo==='fichas');
+      assert('cenário: não cobra foto na validação', pend && pend.msg.startsWith('1 equipamento'));
+      pl0.imagem = svImg; pl0.pins = svPins; state.plantaAtiva = svAtiva;
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',

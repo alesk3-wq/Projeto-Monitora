@@ -193,7 +193,7 @@ function pinsGlobais(){
 // Com li (índice da planta) resume só aquela planta — usado na legenda do Mapeamento.
 export function legendaResumo(li=null){
   const daPlanta = pt => li===null || pt.plantaIdx===li;
-  const out = pontosPorTipo().map(g=>({
+  const out = pontosPorTipo(true).map(g=>({
     tipoId: g.tipo.id,
     qtd: g.pontos.filter(daPlanta).reduce((s,pt)=>s+(parseInt(pt.pin.qtd)||1), 0),
   })).filter(l=>l.qtd>0);
@@ -337,7 +337,7 @@ function pageMapeamento(pl, dims, titulo, li){
     const cone = !t.cameraLike ? '' : (t.foco360
       ? `<div style="position:absolute;left:${left}px;top:${top}px;width:120px;height:120px;border-radius:50%;background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;transform:translate(-50%,-50%);"></div>`
       : coneMapeamento(p, t, left, top));
-    const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(li, pi)}</span>`;
+    const badge = t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(li, pi)}</span>`;
     return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');
   const cercaHtml = (pl.cercas||[]).map(c=>{

@@ -1,12 +1,12 @@
 import { state } from '../state.js';
 import { pontosPorTipo } from '../numeracao.js';
 import { ICONS } from '../constants.js';
-import { typeById, fileToDataURL, defaultCropFrac, alcanceDe, aberturaDe } from '../utils.js';
+import { typeById, fileToDataURL, defaultCropFrac, alcanceDe, aberturaDe, ehEquipamento } from '../utils.js';
 import { renderContent } from '../nav.js';
 
 export function tplEquipamentos(){
   const multi = state.plantas.length > 1;
-  const totalPins = state.plantas.reduce((s,pl)=>s+pl.pins.length, 0);
+  const totalPins = state.plantas.reduce((s,pl)=>s+pl.pins.filter(ehEquipamento).length, 0);
   // Ordem das fichas = ordem da Estrutura: por tipo (EQUIP_TYPES) e, dentro do tipo, pelo número
   const cards = pontosPorTipo().map(g=>g.pontos.map(({pin:p, plantaIdx:li, pinIdx:pi, numero})=>{
     const pl = state.plantas[li];

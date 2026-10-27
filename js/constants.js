@@ -18,6 +18,12 @@ export const EQUIP_TYPES = [
   {id:'fechadura', label:'Fechadura Eletrônica', color:'#BB6BD9', cameraLike:false},
   {id:'biometria', label:'Leitor Biométrico / Facial', color:'#219653', cameraLike:false},
   {id:'cerca', label:'Cerca / Concertina', color:'#EB5757', cameraLike:false},
+  // Itens de cenário (cenario:true): aparecem na planta, no Mapeamento e na legenda, mas não são
+  // equipamentos — sem número, ficha, Estrutura gerada nem validação de fotos
+  {id:'portao', label:'Portão', color:'#8D6E63', cameraLike:false, cenario:true},
+  {id:'porta', label:'Porta', color:'#A1887F', cameraLike:false, cenario:true},
+  {id:'janela', label:'Janela', color:'#4FA3C7', cameraLike:false, cenario:true},
+  {id:'poste', label:'Poste', color:'#546E7A', cameraLike:false, cenario:true},
   {id:'sensor_porta', label:'Sensor de Abertura de Porta', color:'#E60000', cameraLike:false},
   {id:'outro', label:'Outro', color:'#828282', cameraLike:false},
 ];
@@ -43,6 +49,10 @@ export const ICONS = {
   biometria: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a7 7 0 0 0-7 7c0 4 2 6 2 9"/><path d="M12 3a7 7 0 0 1 7 7c0 3-1 4-1 6"/><path d="M9 19c-1-2-2-4-2-7a5 5 0 0 1 10 0c0 1 0 2-.3 3"/><path d="M12 9a3 3 0 0 0-3 3c0 3 1 4 1 6"/></svg>',
   cerca: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="4" y2="20"/><line x1="10" y1="4" x2="10" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="2" y1="8" x2="20" y2="8"/><line x1="2" y1="14" x2="20" y2="14"/></svg>',
   sensor_porta: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="10" height="18" rx="1"/><circle cx="11.5" cy="12" r="0.8" fill="white" stroke="none"/><rect x="16" y="5" width="2.5" height="5" rx="0.5"/><rect x="20" y="5" width="2" height="5" rx="0.5"/></svg>',
+  portao: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="4" x2="3" y2="20"/><line x1="21" y1="4" x2="21" y2="20"/><line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="17" x2="21" y2="17"/><path d="M8 8v9M12.5 8v9M17 8v9"/></svg>',
+  porta: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><line x1="3" y1="21" x2="21" y2="21"/><circle cx="14.5" cy="12" r="0.9" fill="white" stroke="none"/></svg>',
+  janela: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="4" y1="12" x2="20" y2="12"/></svg>',
+  poste: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="3" x2="10" y2="21"/><line x1="6" y1="21" x2="14" y2="21"/><path d="M10 5h7v3"/><line x1="15" y1="8" x2="19" y2="8"/></svg>',
   outro: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7"/><circle cx="12" cy="17" r="0.6" fill="white" stroke="none"/></svg>',
 };
 
@@ -60,3 +70,15 @@ export const PW = 1414, PH = 1000;
 
 // Texto inicial da caixa "Considerações finais" (aba Premissas) — sai no PDF em itálico e entre aspas
 export const CONSIDERACOES_PADRAO = 'Todo o ecossistema será integrado à Central de Monitoramento CCOS | Bracell, assegurando que os analíticos de vídeo gerem alertas proativos e dados estratégicos para a gestão da segurança patrimonial e operacional da unidade.';
+
+// Menu "Inserir" da aba Planta: categorias e os tipos de cada uma (ordem do painel).
+// "Estruturas" começa só com o poste e vai sendo alimentada aos poucos.
+export const CATEGORIAS_INSERIR = [
+  {label:'Câmeras', tipos:['bullet','dome','ptz','lpr']},
+  {label:'Controle de acesso', tipos:['acesso_veic','acesso_ped','fechadura','biometria']},
+  {label:'Sistema de alarme', tipos:['sensor_porta']},
+  {label:'Perímetro', tipos:['cerca']},
+  {label:'Aberturas', tipos:['portao','porta','janela']},
+  {label:'Estruturas', tipos:['poste']},
+  {label:'Outros', tipos:['outro']},
+];

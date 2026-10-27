@@ -1,10 +1,11 @@
 import { state } from '../state.js';
+import { ehEquipamento } from '../utils.js';
 import { validarProposta, CHECKS } from '../validacao.js';
 import { resumoEstrutura } from './estrutura.js';
 
 export function tplGerar(){
   const { grupos: totalGrupos, itens: totalItens } = resumoEstrutura();
-  const allPins = state.plantas.flatMap(pl=>pl.pins);
+  const allPins = state.plantas.flatMap(pl=>pl.pins.filter(ehEquipamento));
   const totalPins = allPins.length;
   const totalFichas = allPins.filter(p=>p.fotoLocal && p.fotoView).length;
   const pend = validarProposta();
