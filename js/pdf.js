@@ -96,7 +96,16 @@ function pageHeader(num, title, alto=false){
   return `
     <div style="position:absolute;left:${74+dx}px;top:${147.5+dy}px;width:78.5px;height:78.5px;border-radius:50%;background:#D9D9D9;display:flex;align-items:center;justify-content:center;font-size:38.3px;color:${COR_TEXTO_REF};">${num}</div>
     <div style="position:absolute;left:${152.5+dx}px;top:${187+dy}px;width:268px;height:1.2px;background:${COR_TEXTO_REF};"></div>
-    ${txtBase(167+dx, 172+dy, 31.1, 'font-weight:700;', title)}`;
+    ${tituloSecao(167+dx, 172+dy, title)}`;
+}
+// Título do cabeçalho: mesma posição de txtBase (base da última linha em `base`), mas quebra linha
+// quando é longo (ficha com rótulo, Mapeamento com nome de planta). Ancorado por baixo, as linhas
+// extras crescem para cima e o título nunca invade o fio nem o conteúdo; largura até a margem direita.
+function tituloSecao(x, base, title){
+  // títulos enormes (3+ linhas) diminuem para não sair pelo topo da página
+  const size = String(title).length > 130 ? 24 : 31.1, lh = 1.1;
+  const bottom = PH - (base + size*0.15 + size*(lh-1)/2);
+  return `<div style="position:absolute;left:${x}px;bottom:${bottom}px;width:${PW - 64 - x}px;font-size:${size}px;line-height:${lh};font-weight:700;color:${COR_TEXTO_REF};overflow-wrap:anywhere;">${title}</div>`;
 }
 function footerBrand(){
   return `<div style="position:absolute;bottom:22px;left:64px;display:flex;align-items:center;gap:14px;color:#8FA3BF;font-size:14px;font-weight:600;">
