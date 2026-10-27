@@ -468,6 +468,17 @@ try{
       assert('legenda do Mapeamento: só a planta pedida, soma de qtd', lr.length===1 && lr[0].tipoId==='bullet' && lr[0].qtd===3);
       state.plantas[0].pins = sv0.pins; state.plantas[0].areas = sv0.areas;
     }
+    {
+      const U = await import('./js/utils.js');
+      const tb = U.typeById('bullet'), tl = U.typeById('lpr');
+      assert('alcance: padrão 1, limitado 0.7–1.8, LPR ignora', U.alcanceDe({tipoId:'bullet'})===1 && U.alcanceDe({tipoId:'dome',alcance:5})===1.8 && U.alcanceDe({tipoId:'bullet',alcance:0.1})===0.7 && U.alcanceDe({tipoId:'lpr',alcance:1.8})===1);
+      const c1 = PD2.coneMapeamento({tipoId:'bullet',direcao:0}, tb, 0, 0);
+      const c2 = PD2.coneMapeamento({tipoId:'bullet',direcao:0,alcance:1.8}, tb, 0, 0);
+      const num = (h,k)=>parseFloat(h.match(new RegExp(k+':([0-9.]+)px'))[1]);
+      assert('cone do PDF: padrão igual ao de antes (72/34px)', Math.abs(num(c1,'border-top')-72)<0.01 && Math.abs(num(c1,'border-left')-34)<0.01);
+      assert('cone do PDF: alcance maior = mais comprido e proporcionalmente mais estreito', num(c2,'border-top')>120 && num(c2,'border-left')/num(c2,'border-top') < 34/72);
+      assert('cone do PDF: LPR não muda com alcance', PD2.coneMapeamento({tipoId:'lpr',direcao:0,alcance:1.8}, tl, 0, 0)===PD2.coneMapeamento({tipoId:'lpr',direcao:0}, tl, 0, 0));
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',

@@ -23,6 +23,18 @@ export function fileToDataURL(file){
 
 export function typeById(id){ return EQUIP_TYPES.find(t=>t.id===id) || EQUIP_TYPES[EQUIP_TYPES.length-1]; }
 
+// Alcance do foco (Bullet/Dome — tipos com ajustaAlcance): fator sobre o comprimento padrão do cone.
+// Mais longe = cone mais comprido e um pouco mais estreito (câmera inclinada para a frente); mais
+// perto = cone curto e mais aberto (câmera olhando para baixo). Pins sem alcance (ou de outros tipos) = 1.
+export const ALCANCE_MIN = 0.7, ALCANCE_MAX = 1.8;
+export function alcanceDe(pin){
+  if(!typeById(pin.tipoId).ajustaAlcance) return 1;
+  const a = parseFloat(pin.alcance);
+  return Number.isFinite(a) ? Math.min(ALCANCE_MAX, Math.max(ALCANCE_MIN, a)) : 1;
+}
+// Multiplicador do meio-ângulo do cone: ~1.08× no alcance mínimo, 1× no padrão, 0.8× no máximo.
+export function aberturaFator(a){ return 1.25 - 0.25*a; }
+
 export function areaCatById(id){ return AREA_CATS.find(c=>c.id===id) || AREA_CATS[AREA_CATS.length-1]; }
 
 export function fmtDate(iso){

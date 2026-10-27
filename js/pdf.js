@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { numeroDoPin, pontosPorTipo, trechosCerca } from './numeracao.js';
 import { BRAND, ICONS, PW, PH } from './constants.js';
-import { showToast, fmtDate, typeById, areaCatById, escHtml } from './utils.js';
+import { showToast, fmtDate, typeById, areaCatById, escHtml, alcanceDe, aberturaFator } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
 import { gruposGerados, secaoGerada } from './tabs/estrutura.js';
@@ -308,6 +308,15 @@ function legendaMapeamento(pl, li){
       </div>`;
   return {html, h};
 }
+// Cone de câmera direcional no Mapeamento (técnica de bordas transparentes — html2canvas não faz
+// clip-path): padrão 72px de comprimento e meio-ângulo atan(34/72); o alcance (Bullet/Dome)
+// multiplica o comprimento e aberturaFator estreita/abre, como no editor.
+const CONE_PDF_L0 = 72, CONE_PDF_MEIO0 = Math.atan(34/72);
+export function coneMapeamento(p, t, left, top){
+  const a = alcanceDe(p);
+  const L = CONE_PDF_L0*a, w = L*Math.tan(CONE_PDF_MEIO0*aberturaFator(a));
+  return `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:${w}px solid transparent;border-right:${w}px solid transparent;border-top:${L}px solid ${t.color}66;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>`;
+}
 function pageMapeamento(pl, dims, titulo, li){
   // planta logo abaixo do cabeçalho (top 155) até o rodapé (y 940), descontando a legenda
   const leg = legendaMapeamento(pl, li);
@@ -319,7 +328,7 @@ function pageMapeamento(pl, dims, titulo, li){
     const top = rect.y + (p.y/100)*rect.h;
     const cone = !t.cameraLike ? '' : (t.foco360
       ? `<div style="position:absolute;left:${left}px;top:${top}px;width:120px;height:120px;border-radius:50%;background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;transform:translate(-50%,-50%);"></div>`
-      : `<div style="position:absolute;left:${left}px;top:${top}px;width:0;height:0;border-left:34px solid transparent;border-right:34px solid transparent;border-top:72px solid ${t.color}66;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(${p.direcao||0}deg);"></div>`);
+      : coneMapeamento(p, t, left, top));
     const badge = `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(li, pi)}</span>`;
     return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');

@@ -9,8 +9,8 @@ export const BRAND = {
 };
 
 export const EQUIP_TYPES = [
-  {id:'bullet', label:'Câmera Bullet', color:'#F2994A', cameraLike:true},
-  {id:'dome', label:'Câmera Dome', color:'#2D9CDB', cameraLike:true},
+  {id:'bullet', label:'Câmera Bullet', color:'#F2994A', cameraLike:true, ajustaAlcance:true},
+  {id:'dome', label:'Câmera Dome', color:'#2D9CDB', cameraLike:true, ajustaAlcance:true},
   {id:'ptz', label:'Câmera PTZ / Speed Dome', color:'#9B51E0', cameraLike:true, foco360:true},
   {id:'lpr', label:'Câmera LPR (Leitura de Placas)', color:'#27AE60', cameraLike:true},
   {id:'acesso_veic', label:'Controle de Acesso Veicular', color:'#EB5757', cameraLike:false},

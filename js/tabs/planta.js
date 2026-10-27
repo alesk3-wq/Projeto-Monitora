@@ -1,7 +1,7 @@
 import { state, novaPlanta } from '../state.js';
 import { numeroDoPin } from '../numeracao.js';
 import { EQUIP_TYPES, ICONS } from '../constants.js';
-import { typeById, fileToDataURL, showToast, novoId } from '../utils.js';
+import { typeById, fileToDataURL, showToast, novoId, alcanceDe, aberturaFator, ALCANCE_MIN, ALCANCE_MAX } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
@@ -11,7 +11,7 @@ export function tplPlanta(){
   const pl = state.planta;
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
-    <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização.</p>
+    <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco).</p>
     <div class="card">
       <div class="planta-tabs">
         ${state.plantas.map((pt,i)=>`
@@ -74,6 +74,7 @@ export function tplPlanta(){
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">
             ${typeById(p.tipoId).cameraLike && !typeById(p.tipoId).foco360 ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
+            ${typeById(p.tipoId).ajustaAlcance ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>` : ''}
             <button class="btn danger small" onclick="removePin(${pi})">✕</button>
           </div>
         `).join('')}
@@ -266,16 +267,17 @@ export function afterPlantaRender(){
       } else if(t.cameraLike){
         const cone = document.createElement('div');
         cone.id = 'cone-'+pi;
-        cone.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:110px;height:110px;transform:translate(-50%,-50%) rotate(${p.direcao||0}deg);transform-origin:50% 50%;clip-path:polygon(50% 50%, 26% 0%, 74% 0%);background:${t.color}55;pointer-events:none;z-index:1;`;
+        const g = coneEditor(p);
+        cone.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:${g.size}px;height:${g.size}px;transform:translate(-50%,-50%) rotate(${p.direcao||0}deg);transform-origin:50% 50%;clip-path:${g.clip};background:${t.color}55;pointer-events:none;z-index:1;`;
         wrap.appendChild(cone);
 
-        const R = 58;
+        const R = g.R;
         const rad = (p.direcao||0) * Math.PI/180;
         const hx = R*Math.sin(rad), hy = -R*Math.cos(rad);
         const handle = document.createElement('div');
         handle.id = 'rothandle-'+pi;
         handle.className = 'planta-rothandle';
-        handle.title = 'Arraste para girar a direção';
+        handle.title = t.ajustaAlcance ? 'Arraste para girar a direção; afaste ou aproxime do ícone para mudar o alcance' : 'Arraste para girar a direção';
         handle.style.cssText = `position:absolute;left:calc(${p.x}% + ${hx}px);top:calc(${p.y}% + ${hy}px);border-radius:50%;background:#fff;border:2.5px solid ${t.color};transform:translate(-50%,-50%);cursor:grab;z-index:4;box-shadow:0 1px 3px rgba(0,0,0,.45);touch-action:none;`;
         handle.onpointerdown = (e)=>startRotateDrag(e, pi);
         wrap.appendChild(handle);
@@ -354,6 +356,11 @@ export function onPointerDrag(e){
     let deg = Math.atan2(dx, -dy) * 180/Math.PI;
     if(deg < 0) deg += 360;
     pin.direcao = Math.round(deg);
+    // Bullet/Dome: a distância do ponto ao ícone define o alcance (o ponto fica na ponta do cone)
+    if(typeById(pin.tipoId).ajustaAlcance){
+      const a = (Math.hypot(dx, dy) - 3) / CONE_L0;
+      pin.alcance = Math.round(Math.min(ALCANCE_MAX, Math.max(ALCANCE_MIN, a))*100)/100;
+    }
   }
   updatePinDOM(pi);
 }
@@ -380,12 +387,15 @@ export function updatePinDOM(pi){
   const coneEl = document.getElementById('cone-'+pi);
   const handleEl = document.getElementById('rothandle-'+pi);
   if(pinEl){ pinEl.style.left = pin.x+'%'; pinEl.style.top = pin.y+'%'; }
+  const t = typeById(pin.tipoId);
+  const g = (t.cameraLike && !t.foco360) ? coneEditor(pin) : null;
   if(coneEl){
     coneEl.style.left = pin.x+'%'; coneEl.style.top = pin.y+'%';
     coneEl.style.transform = `translate(-50%,-50%) rotate(${pin.direcao||0}deg)`;
+    if(g){ coneEl.style.width = coneEl.style.height = g.size+'px'; coneEl.style.clipPath = g.clip; }
   }
   if(handleEl){
-    const R = 58;
+    const R = g ? g.R : 58;
     const rad = (pin.direcao||0) * Math.PI/180;
     const hx = R*Math.sin(rad), hy = -R*Math.cos(rad);
     handleEl.style.left = `calc(${pin.x}% + ${hx}px)`;
@@ -398,6 +408,9 @@ export function syncPinRowControls(){
     const lbl = document.getElementById('deglabel-'+pi);
     if(slider) slider.value = p.direcao||0;
     if(lbl) lbl.textContent = (p.direcao||0)+'°';
+    const as = document.getElementById('alcslider-'+pi), al = document.getElementById('alclabel-'+pi);
+    if(as) as.value = Math.round(alcanceDe(p)*100);
+    if(al) al.textContent = Math.round(alcanceDe(p)*100)+'%';
   });
 }
 
@@ -434,6 +447,23 @@ export function liveUpdateCone(pi, deg){
   const lbl = document.getElementById('deglabel-'+pi);
   if(lbl) lbl.textContent = deg+'°';
   updatePinDOM(pi);
+}
+
+export function liveUpdateAlcance(pi, pct){
+  state.planta.pins[pi].alcance = parseInt(pct)/100;
+  const lbl = document.getElementById('alclabel-'+pi);
+  if(lbl) lbl.textContent = parseInt(pct)+'%';
+  updatePinDOM(pi);
+}
+// Cone do editor: caixa quadrada 2L centrada no pin, recortada por clip-path (vértice no centro, base
+// no topo). Padrão L=55px e meio-ângulo ≈25.6°; o alcance multiplica L e aberturaFator estreita/abre.
+const CONE_L0 = 55, CONE_MEIO0 = Math.atan(26.4/55);
+function coneEditor(pin){
+  const a = alcanceDe(pin);
+  const L = CONE_L0*a, w = L*Math.tan(CONE_MEIO0*aberturaFator(a));
+  const p = (w/(2*L))*100;
+  // ponto na ponta do cone, mas nunca colado no ícone (fica pegável no alcance mínimo)
+  return { size: 2*L, clip: `polygon(50% 50%, ${50-p}% 0%, ${50+p}% 0%)`, R: Math.max(L+3, 44) };
 }
 
 export function removePin(pi){ state.planta.pins.splice(pi,1); renderContent(); }

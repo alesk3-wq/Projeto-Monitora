@@ -60,11 +60,12 @@ state = {
     selectedTipo,    // tipo de equipamento selecionado na toolbar
     zoom,            // 60–400 (%)
     pins: [
-      { id, tipoId, label, qtd, x, y, direcao, fotoLocal, fotoView, cropFrac }
+      { id, tipoId, label, qtd, x, y, direcao, alcance, fotoLocal, fotoView, cropFrac }
       // id: string estável (novoId() em utils.js), criado no clique; .json antigos ganham id no import
       //     — é por ele que a Estrutura gerada guarda descrições e a ficha acha sua legenda
       // x,y em % relativos à imagem da planta (não em px — funciona com qualquer zoom)
       // direcao em graus (0 = norte/topo, sentido horário) — só relevante para tipos "cameraLike"
+      // alcance (opcional, só Bullet/Dome — ajustaAlcance): fator 0.7–1.8 do comprimento do cone; ausente = 1
       // fotoLocal / fotoView: dataURL de fotos enviadas na aba Fichas de Equipamentos
       // cropFrac (opcional): fração do recorte da ficha (0.10–0.60); ausente = default adaptativo
     ],
@@ -101,7 +102,7 @@ state = {
 ### Interações implementadas na planta
 - **Clique/tap** na planta com um tipo selecionado na toolbar → cria um pin novo (ou, com o tipo `cerca` selecionado, adiciona um vértice ao traçado em andamento — `tracoAtual`, variável de módulo em `js/tabs/planta.js`)
 - **Arrastar o ícone** (pointer events, funciona com mouse e touch) → reposiciona o pin (`startPinDrag` → `onPointerDrag` → `updatePinDOM`); vértices de cerca usam a mesma mecânica (`startVertexDrag`, `dragState.type==='vertex'`)
-- **Arrastar o ponto branco** ao redor do ícone (só em tipos `cameraLike`) → gira a direção/cone de visualização (`startRotateDrag`, matemática com `atan2`)
+- **Arrastar o ponto branco** ao redor do ícone (só em tipos `cameraLike`) → gira a direção/cone de visualização (`startRotateDrag`, matemática com `atan2`). Em **Bullet e Dome** (`ajustaAlcance:true` em `EQUIP_TYPES`) a **distância do ponto ao ícone define o alcance do foco** (`pin.alcance`, 0.7–1.8, `ALCANCE_MIN/MAX` em `js/utils.js`): mais longe = cone mais comprido e um pouco mais estreito (câmera inclinada para a frente), mais perto = curto e mais aberto (olhando para baixo). Geometria única: `alcanceDe(pin)` + `aberturaFator(a)` (meio-ângulo × `1.25-0.25a`) em `js/utils.js`, usada no editor (`coneEditor` em `planta.js`, ponto na ponta do cone, mín. 44px do ícone), no Mapeamento do PDF (`coneMapeamento` em `js/pdf.js`) e no recorte da ficha (`generateCropDataURL`). A lista de pins tem slider "Alcance" (%) sincronizado com o arraste. LPR fica de fora por decisão do usuário (instalação vai na descrição)
 - **Zoom** — a imagem cresce em largura (%) dentro de um container com `overflow:auto`; como as posições dos pins são em %, elas continuam corretas em qualquer zoom. No touch há **pinch-zoom com dois dedos** (`attachPinchZoom` em `js/tabs/planta.js`: listeners `touchstart/move/end/cancel` com `{passive:false}`, ancorado no ponto médio do gesto, atualização ao vivo sem `renderContent()`); um dedo rola nativamente
 - **Touch**: alvos maiores em telas touch via `@media (pointer: coarse)` (classes `.planta-pin` 36→44px, `.planta-rothandle` 20→28px, `.cerca-vertex` 14→24px); `#plantaScroll` tem `user-select:none` + `-webkit-touch-callout:none` (bloqueia long-press/seleção) e `touch-action:pan-x pan-y`
 - Os segmentos de cerca no editor são `<div>`s rotacionadas com posição/comprimento em % — invariantes ao zoom (o pinch não precisa re-renderizá-los). `afterPlantaRender` re-executa `renderCercas` no `load` da imagem da planta (sem isso, a geometria sairia errada quando a aba renderiza antes do decode — ex: logo após importar um `.json`)
@@ -183,5 +184,5 @@ state = {
 - `js/tabs/areas.js` — demarcadores de área da aba Planta (paleta, desenho clica-e-arrasta, mover/redimensionar, linhas da lista); `planta.js` delega para cá
 - `js/tabs/etiquetas.js` — etiquetas da aba Planta (criação, render caixa/linha/seta, arraste de caixa e ponta, linhas da lista, `etqGeom` compartilhado com o PDF)
 - `js/tabs/plantaPdf.js` — importação de planta baixa em PDF (detecção do arquivo, rasterização via `PDF.js`, seletor de páginas quando há mais de uma); `planta.js` delega para cá
-- `test-harness.html` — página de teste headless (abre em `/test-harness.html`, roda 93 asserções — multi-planta, rolagem/zoom, sensor, etiquetas no editor e no PDF, numeração por tipo, Estrutura gerada — direto no browser e imprime PASS/FAIL num `<pre>`; rodar com Chrome headless: `chrome --headless=new --disable-gpu --window-size=1400,900 --dump-dom --virtual-time-budget=15000 http://localhost:PORTA/test-harness.html`). Ampliar quando novos fluxos críticos surgirem
+- `test-harness.html` — página de teste headless (abre em `/test-harness.html`, roda 97 asserções — multi-planta, rolagem/zoom, sensor, etiquetas no editor e no PDF, numeração por tipo, Estrutura gerada — direto no browser e imprime PASS/FAIL num `<pre>`; rodar com Chrome headless: `chrome --headless=new --disable-gpu --window-size=1400,900 --dump-dom --virtual-time-budget=15000 http://localhost:PORTA/test-harness.html`). Ampliar quando novos fluxos críticos surgirem
 - `CLAUDE.md` — este arquivo

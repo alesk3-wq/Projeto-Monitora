@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import { pontosPorTipo } from '../numeracao.js';
 import { ICONS } from '../constants.js';
-import { typeById, fileToDataURL, defaultCropFrac } from '../utils.js';
+import { typeById, fileToDataURL, defaultCropFrac, alcanceDe, aberturaFator } from '../utils.js';
 import { renderContent } from '../nav.js';
 
 export function tplEquipamentos(){
@@ -114,7 +114,10 @@ export function generateCropDataURL(pin, planta){
       // Foco da câmera por baixo do marcador: setor na direção do pin, ou círculo cheio (foco360)
       const t = typeById(pin.tipoId);
       if(t.cameraLike){
-        const R = 75; // px do canvas — visual consistente entre fichas, independente do cropFrac
+        // px do canvas — visual consistente entre fichas, independente do cropFrac; alcance (Bullet/Dome)
+        // alonga o setor e o deixa um pouco mais estreito, como no editor
+        const alc = t.foco360 ? 1 : alcanceDe(pin);
+        const R = 75*alc;
         ctx.fillStyle = t.color + '40';
         if(t.foco360){
           ctx.beginPath();
@@ -123,7 +126,7 @@ export function generateCropDataURL(pin, planta){
           ctx.lineWidth = 1.5; ctx.strokeStyle = t.color + '88'; ctx.stroke();
         } else {
           const a = ((pin.direcao||0) - 90) * Math.PI/180; // 0° = norte/topo → ângulo do canvas
-          const half = 24 * Math.PI/180;                   // meio-ângulo do cone do editor
+          const half = 24*aberturaFator(alc) * Math.PI/180; // meio-ângulo do cone do editor
           ctx.beginPath();
           ctx.moveTo(markerX, markerY);
           ctx.arc(markerX, markerY, R, a - half, a + half);
