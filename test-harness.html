@@ -449,6 +449,17 @@ try{
     assert('ficha PDF: título com Ponto N e rótulo escapado', h1.includes('Câmera Bullet — Ponto 2 — Portaria &lt;1&gt;'));
     const h2 = PD2.pageEquipamento({tipoId:'bullet', label:'Câmera Bullet', qtd:1}, 3, null);
     assert('ficha PDF: rótulo igual ao tipo não repete', h2.includes('Câmera Bullet — Ponto 3') && !h2.includes('Ponto 3 — Câmera Bullet'));
+    {
+      const salvoP = state.premissas;
+      const mk = ()=>{ const d=document.createElement('div'); d.style.cssText='position:absolute;left:-99999px;top:0;'; d.innerHTML=PD2.pagePremissas(); document.body.appendChild(d); return d; };
+      state.premissas = [{titulo:'Curta', desc:'texto curto'}];
+      let d = mk(); const ok1 = PD2.ajustarFluxo(d) && !!d.querySelector('[data-logo-grande]'); d.remove();
+      state.premissas = Array.from({length:12}, (_,i)=>({titulo:'Premissa '+i, desc:'Texto longo de teste para ocupar bastante espaço na página de premissas do projeto. '.repeat(3)}));
+      d = mk(); const ok2 = PD2.ajustarFluxo(d) && !d.querySelector('[data-logo-grande]') && d.querySelector('[data-fluxo-inner]').style.transform.includes('scale('); d.remove();
+      state.premissas = salvoP;
+      assert('texto curto: página intacta com logo grande', ok1);
+      assert('texto longo: logo grande vira rodapé pequeno e o texto é reduzido até caber', ok2);
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',

@@ -87,7 +87,7 @@ function cantoArte(){
 }
 // Logo do rodapé no tamanho/posição do modelo (páginas de texto)
 function logoRodape(){
-  return `<img src="${logoPdf}" style="position:absolute;left:41px;top:901px;width:192px;">`;
+  return `<img data-logo-grande src="${logoPdf}" style="position:absolute;left:41px;top:901px;height:46px;">`;
 }
 // Cabeçalho de seção do modelo: círculo cinza com o número + título preto sobre um fio fino.
 // alto=false → posição das páginas Objetivo/Estrutura; alto=true → Mapeamento/fichas/Premissas.
@@ -172,12 +172,12 @@ export function pageObjetivo(){
   return pageShell(`
     ${pageHeader('01','Objetivo do Projeto')}
     ${cantoArte()}
-    <div lang="pt-BR" style="position:absolute;top:225px;left:114px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;">
+    <div data-fluxo lang="pt-BR" style="position:absolute;top:225px;left:114px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;"><div data-fluxo-inner>
       <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:20px;margin-bottom:10px;">Área a ser Monitorada:</div>
       <div style="margin-bottom:34px;">${textoEstruturado(state.objetivo.problema)}</div>
       <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:20px;margin-bottom:10px;">Diretriz da Proposta:</div>
       <div>${textoEstruturado(state.objetivo.solucao)}</div>
-    </div>
+    </div></div>
     ${logoRodape()}
   `);
 }
@@ -235,7 +235,7 @@ export function pageEstrutura(){
   return pageShell(`
     ${pageHeader('03','Estrutura')}
     ${cantoArte()}
-    <div style="position:absolute;top:235px;left:114px;right:530px;bottom:110px;overflow:hidden;">
+    <div data-fluxo style="position:absolute;top:235px;left:114px;right:530px;bottom:110px;overflow:hidden;"><div data-fluxo-inner>
       ${state.estrutura.map(g=> g.gerado ? estruturaGeradaHtml() : `
         <div style="margin-bottom:20px;">
           <div style="font-weight:700;color:${COR_TEXTO_REF};font-size:19px;margin-bottom:8px;">${g.titulo||'Grupo'}</div>
@@ -244,7 +244,7 @@ export function pageEstrutura(){
               <b>${(parseInt(it.qtd)||0)>=2 ? (parseInt(it.qtd)||0)+'x ' : ''}${it.nome||''}</b>${it.desc?': '+it.desc:''}
             </div>`).join('')}
         </div>`).join('')}
-    </div>
+    </div></div>
     <div style="position:absolute;top:440px;right:64px;width:440px;max-height:450px;overflow:hidden;box-sizing:border-box;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:10px;padding:20px;">
       <div style="font-weight:800;color:${BRAND.cor};font-size:17px;margin-bottom:14px;">Legenda — Equipamentos na Planta</div>
       ${blocos.trim()==='' ? `<div style="font-size:15px;color:#8FA3BF;">Nenhum equipamento posicionado.</div>` : blocos}
@@ -376,13 +376,13 @@ export function pagePremissas(){
   return pageShell(`
     ${pageHeader('05','Premissas do Projeto', true)}
     ${cantoArte()}
-    <div lang="pt-BR" style="position:absolute;top:205px;left:97px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;">
+    <div data-fluxo lang="pt-BR" style="position:absolute;top:205px;left:97px;right:${MARGEM_DIR_TEXTO}px;bottom:110px;overflow:hidden;"><div data-fluxo-inner>
       ${state.premissas.map(p=>`
         <div style="margin-bottom:26px;font-size:19px;line-height:1.36;color:${COR_TEXTO_REF};${TEXTO_JUST}">
           <b style="font-weight:700;">${p.titulo}:</b> ${p.desc}
         </div>`).join('')}
       ${consideracoesHtml()}
-    </div>
+    </div></div>
     ${logoRodape()}
   `);
 }
@@ -392,6 +392,27 @@ function pageEncerramento(){
     ${txtBase(138.2, 567, 128, 'font-weight:700;', (BRAND.slogan||'').toUpperCase())}
     ${logoRodape()}
   `);
+}
+
+// Páginas de texto (Objetivo, Estrutura, Premissas): se o conteúdo não cabe acima da logo grande,
+// 1) troca a logo grande pelo rodapé pequeno e o texto desce até 60px do fim; 2) se ainda não couber,
+// reduz o bloco de texto proporcionalmente (transform:scale, até 70%). Retorna false se nem assim coube.
+export function ajustarFluxo(pagina){
+  const box = pagina.querySelector('[data-fluxo]'), inner = box && box.querySelector('[data-fluxo-inner]');
+  if(!inner) return true;
+  const cabe = ()=> inner.getBoundingClientRect().height <= box.clientHeight + 1;
+  if(cabe()) return true;
+  const logo = pagina.querySelector('[data-logo-grande]');
+  if(logo){ logo.outerHTML = footerBrand(); box.style.bottom = '60px'; }
+  if(cabe()) return true;
+  inner.style.transformOrigin = '0 0';
+  let s = 1;
+  for(let k=0; k<8 && !cabe() && s>0.7; k++){
+    s = Math.max(0.7, s * box.clientHeight / inner.getBoundingClientRect().height);
+    inner.style.width = (100/s)+'%';
+    inner.style.transform = `scale(${s})`;
+  }
+  return cabe();
 }
 
 export async function gerarPDF(){
@@ -421,11 +442,13 @@ export async function gerarPDF(){
   ];
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF({orientation:'landscape', unit:'px', format:[PW,PH]});
+  let naoCouberam = 0;
   for(let i=0;i<pages.length;i++){
     const div = document.createElement('div');
     div.innerHTML = pages[i];
     root.appendChild(div);
     await new Promise(r=>setTimeout(r,60));
+    if(!ajustarFluxo(div)) naoCouberam++;
     const canvas = await html2canvas(div.firstElementChild, {scale:2, useCORS:true, backgroundColor:'#ffffff'});
     const imgData = canvas.toDataURL('image/jpeg', 0.93);
     if(i>0) pdf.addPage([PW,PH],'landscape');
@@ -439,7 +462,7 @@ export async function gerarPDF(){
     exportarProjeto();
     showToast('PDF e projeto editável (.json) baixados!');
   } else {
-    showToast('PDF gerado com sucesso!');
+    showToast(naoCouberam ? 'PDF gerado — atenção: texto longo demais em '+naoCouberam+' página(s), parte foi cortada. Encurte o texto.' : 'PDF gerado com sucesso!');
   }
 }
 
