@@ -2,7 +2,7 @@ import { todayISO } from './utils.js';
 import { CONSIDERACOES_PADRAO } from './constants.js';
 
 export function novaPlanta(nome){
-  return { nome, imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[], areas:[], etiquetas:[], selectedAreaCat:'area1' };
+  return { nome, imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[], areas:[], etiquetas:[], muros:[], selectedAreaCat:'area1' };
 }
 
 // Alias vivo: state.planta → planta ativa (state.plantas[state.plantaAtiva]).

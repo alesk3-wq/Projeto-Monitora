@@ -24,6 +24,8 @@ export const EQUIP_TYPES = [
   {id:'porta', label:'Porta', color:'#A1887F', cameraLike:false, cenario:true},
   {id:'janela', label:'Janela', color:'#4FA3C7', cameraLike:false, cenario:true},
   {id:'poste', label:'Poste', color:'#546E7A', cameraLike:false, cenario:true},
+  // Muro / parede: traçado (como a cerca), aberto ou fechado; bloqueia a visão das câmeras (js/visao.js)
+  {id:'muro', label:'Muro / Parede', color:'#5E4B8B', cameraLike:false, cenario:true},
   {id:'sensor_porta', label:'Sensor de Abertura de Porta', color:'#E60000', cameraLike:false},
   {id:'outro', label:'Outro', color:'#828282', cameraLike:false},
 ];
@@ -53,6 +55,7 @@ export const ICONS = {
   porta: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><line x1="3" y1="21" x2="21" y2="21"/><circle cx="14.5" cy="12" r="0.9" fill="white" stroke="none"/></svg>',
   janela: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="4" y1="12" x2="20" y2="12"/></svg>',
   poste: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="3" x2="10" y2="21"/><line x1="6" y1="21" x2="14" y2="21"/><path d="M10 5h7v3"/><line x1="15" y1="8" x2="19" y2="8"/></svg>',
+  muro: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="1"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="9" y1="6" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="18"/></svg>',
   outro: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7"/><circle cx="12" cy="17" r="0.6" fill="white" stroke="none"/></svg>',
 };
 
@@ -79,6 +82,6 @@ export const CATEGORIAS_INSERIR = [
   {label:'Sistema de alarme', tipos:['sensor_porta']},
   {label:'Perímetro', tipos:['cerca']},
   {label:'Aberturas', tipos:['portao','porta','janela']},
-  {label:'Estruturas', tipos:['poste']},
+  {label:'Estruturas', tipos:['muro','poste']},
   {label:'Outros', tipos:['outro']},
 ];

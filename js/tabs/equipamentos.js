@@ -3,6 +3,7 @@ import { pontosPorTipo } from '../numeracao.js';
 import { ICONS } from '../constants.js';
 import { typeById, fileToDataURL, defaultCropFrac, alcanceDe, aberturaDe, ehEquipamento } from '../utils.js';
 import { renderContent } from '../nav.js';
+import { segmentosMuros, poligonoVisao } from '../visao.js';
 
 export function tplEquipamentos(){
   const multi = state.plantas.length > 1;
@@ -111,6 +112,14 @@ export function generateCropDataURL(pin, planta){
       ctx.drawImage(img, sx, sy, cropW, cropH, dx, dy, dw, dh);
       const markerX = dx + ((pin.x/100*cw - sx)/cropW)*dw;
       const markerY = dy + ((pin.y/100*ch - sy)/cropH)*dh;
+      // muros em px do canvas (imagem inteira escalada e deslocada como o recorte): desenhados e usados no corte do foco
+      const segs = segmentosMuros(pl, cw*dw/cropW, ch*dh/cropH, dx - sx*dw/cropW, dy - sy*dh/cropH);
+      if(segs.length){
+        ctx.save();
+        ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.strokeStyle = typeById('muro').color;
+        segs.forEach(([a,b])=>{ ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); });
+        ctx.restore();
+      }
       // Foco da câmera por baixo do marcador: setor na direção do pin, ou círculo cheio (foco360)
       const t = typeById(pin.tipoId);
       if(t.cameraLike){
@@ -119,14 +128,20 @@ export function generateCropDataURL(pin, planta){
         const alc = t.foco360 ? 1 : alcanceDe(pin);
         const R = 75*alc;
         ctx.fillStyle = t.color + '40';
-        if(t.foco360){
+        const ab = aberturaDe(pin), dirc = pin.direcao||0;
+        const poly = segs.length ? (t.foco360 ? poligonoVisao(markerX, markerY, R, 0, 360, segs, true) : poligonoVisao(markerX, markerY, R, dirc-ab.esq, dirc+ab.dir, segs)) : null;
+        if(poly){
+          ctx.beginPath();
+          poly.forEach((q,i)=> i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+          ctx.closePath();
+          ctx.fill();
+        } else if(t.foco360){
           ctx.beginPath();
           ctx.arc(markerX, markerY, R, 0, Math.PI*2);
           ctx.fill();
           ctx.lineWidth = 1.5; ctx.strokeStyle = t.color + '88'; ctx.stroke();
         } else {
           const a = ((pin.direcao||0) - 90) * Math.PI/180; // 0° = norte/topo → ângulo do canvas
-          const ab = aberturaDe(pin);
           ctx.beginPath();
           ctx.moveTo(markerX, markerY);
           ctx.arc(markerX, markerY, R, a - ab.esq*Math.PI/180, a + ab.dir*Math.PI/180);

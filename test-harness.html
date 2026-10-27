@@ -530,6 +530,60 @@ try{
       assert('cenário: não cobra foto na validação', pend && pend.msg.startsWith('1 equipamento'));
       pl0.imagem = svImg; pl0.pins = svPins; state.plantaAtiva = svAtiva;
     }
+    {
+      // muros: geometria da visão, aberturas presas, editor e PDF
+      const VI = await import('./js/visao.js'), MU = await import('./js/tabs/muros.js'), U3 = await import('./js/utils.js');
+      const plT = {muros:[{id:'w1', fechado:false, pontos:[{x:60,y:0},{x:60,y:100}]}], pins:[]};
+      const segs = VI.segmentosMuros(plT, 100, 100);
+      assert('visão: sem muro no caminho = sem corte (arco normal)', VI.poligonoVisao(20, 50, 30, 60, 120, segs)===null && VI.poligonoVisao(20, 50, 30, 60, 120, [])===null);
+      const pv = VI.poligonoVisao(50, 50, 30, 60, 120, segs);
+      assert('visão: muro corta o setor na parede', pv && pv[0].x===50 && pv.slice(1).every(q=>q.x<=60.01) && pv.some(q=>Math.abs(q.x-60)<0.01));
+      const pc = VI.poligonoVisao(50, 50, 30, 0, 360, segs, true);
+      assert('visão: PTZ (360°) também é cortada, só do lado do muro', pc && pc.every(q=>q.x<=60.01) && pc.some(q=>q.x<25));
+      const canto = VI.poligonoVisao(928, 765, 99, 300, 360, [[{x:860,y:450},{x:860,y:814}],[{x:860,y:814},{x:1265,y:814}]]);
+      assert('visão: canto de muro fora do setor não entra no polígono (sem "rabo")', canto && canto.every(q=>q.y<=765.01 && q.x<=928.01));
+      const fechadoT = {muros:[{id:'w2', fechado:true, pontos:[{x:10,y:10},{x:30,y:10},{x:30,y:30}]}], pins:[]};
+      assert('muro fechado inclui o lado de volta', VI.segmentosMuros(fechadoT, 100, 100).length===3);
+      const porta = {tipoId:'porta', x:58, y:40};
+      VI.encaixarNoMuro(porta, plT, 100, 100);
+      const bulletPerto = {tipoId:'bullet', x:58, y:40};
+      VI.encaixarNoMuro(bulletPerto, plT, 100, 100);
+      assert('abertura perto do muro gruda nele (x na parede); câmera não', porta.muroId==='w1' && Math.abs(porta.x-60)<0.01 && Math.abs(porta.y-40)<0.01 && bulletPerto.muroId===undefined && bulletPerto.x===58);
+      plT.pins = [porta]; plT.muros[0].pontos[0].x = 70; plT.muros[0].pontos[1].x = 70;
+      VI.sincronizarAberturas(plT);
+      assert('abertura acompanha o muro quando ele se move', Math.abs(porta.x-70)<0.01);
+      const longe = {tipoId:'portao', x:20, y:40, muroId:'w1', seg:0, t:0.5};
+      VI.encaixarNoMuro(longe, plT, 100, 100);
+      assert('abertura longe de muro fica solta', longe.muroId===undefined && longe.x===20);
+      assert('geomNoMuro: ângulo da parede em px (vertical = 90°)', Math.abs(Math.abs(VI.geomNoMuro(porta, plT, 100, 100).ang)-90)<0.01);
+      // PDF
+      const tb2 = U3.typeById('bullet'), tp2 = U3.typeById('ptz');
+      const segsPdf = VI.segmentosMuros(plT, 1000, 1000);
+      assert('PDF: foco cortado pelo muro, PTZ via canvas', PD2.coneMapeamento({tipoId:'bullet',direcao:90}, tb2, 650, 400, segsPdf).includes('|cortado') && !PD2.coneMapeamento({tipoId:'bullet',direcao:270}, tb2, 650, 400, segsPdf).includes('|cortado') && PD2.coneMapeamento({tipoId:'ptz'}, tp2, 650, 400, segsPdf).includes('|cortado'));
+      assert('PDF: muros desenhados como imagem', PD2.murosImg(plT, {x:0,y:0,w:300,h:200}).includes('data-muros="1"') && PD2.murosImg({muros:[]}, {x:0,y:0,w:1,h:1})==='');
+      // editor
+      const pl0 = state.plantas[0], sv = {imagem:pl0.imagem, pins:pl0.pins, muros:pl0.muros, sel:pl0.selectedTipo, zoom:pl0.zoom}, svAtiva = state.plantaAtiva;
+      const cvW = document.createElement('canvas'); cvW.width = 400; cvW.height = 400;
+      pl0.imagem = cvW.toDataURL('image/png'); pl0.zoom = 100;
+      pl0.muros = [{id:'mw', label:'Muro', fechado:false, pontos:[{x:60,y:0},{x:60,y:100}]}];
+      pl0.pins = [{id:'c1',tipoId:'bullet',label:'B',qtd:1,x:57,y:50,direcao:90},{id:'c2',tipoId:'porta',label:'Porta',qtd:1,x:60,y:30,muroId:'mw',seg:0,t:0.3}];
+      state.plantaAtiva = 0; window.switchTab('planta'); await waitImg(); await new Promise(r=>setTimeout(r,50));
+      const d1 = document.querySelector('#cone-0 path')?.getAttribute('d') || '';
+      assert('editor: muro desenhado, foco cortado (polígono, sem arco), porta com barra no muro', document.querySelector('.muro-svg polyline') && d1 && !d1.includes(' A') && document.getElementById('abmark-1'));
+      assert('editor: Muro / Parede no menu Estruturas, linha na lista', [...document.querySelectorAll('#menuInserir .type-btn')].some(b=>b.textContent.includes('Muro / Parede')) && [...document.querySelectorAll('.pinrow b')].some(b=>b.textContent==='M1'));
+      window.selectTipo('muro'); await waitImg();
+      assert('editor: ferramenta Muro mostra barra e cantos arrastáveis', document.querySelector('.muro-bar') && document.querySelectorAll('[id^="murov-0-"]').length===2);
+      const r = document.getElementById('plantaImg').getBoundingClientRect();
+      MU.muroClique(10, 10, r); MU.muroClique(30, 10, r); MU.muroClique(30, 30, r);
+      MU.muroClique(10.5, 10.5, r); // perto do 1º ponto → fecha
+      assert('editor: tocar no 1º ponto fecha o local', pl0.muros.length===2 && pl0.muros[1].fechado===true && pl0.muros[1].pontos.length===3);
+      MU.muroClique(80, 80, r); MU.muroClique(90, 90, r); window.muroConcluir(false);
+      assert('editor: Concluir deixa o muro aberto', pl0.muros.length===3 && pl0.muros[2].fechado===false);
+      window.removeMuro(0);
+      assert('excluir muro solta as aberturas presas nele', pl0.muros.length===2 && pl0.pins[1].muroId===undefined);
+      assert('legenda conta os muros', PD2.legendaResumo(0).some(l=>l.tipoId==='muro' && l.qtd===2));
+      pl0.imagem = sv.imagem; pl0.pins = sv.pins; pl0.muros = sv.muros; pl0.selectedTipo = sv.sel; pl0.zoom = sv.zoom; state.plantaAtiva = svAtiva;
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',

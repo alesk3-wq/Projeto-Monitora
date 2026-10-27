@@ -4,6 +4,7 @@ import { BRAND, ICONS, PW, PH } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById, escHtml, alcanceDe, aberturaDe } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
+import { segmentosMuros, poligonoVisao, geomNoMuro } from './visao.js';
 import { gruposGerados, secaoGerada } from './tabs/estrutura.js';
 import { exportarProjeto } from './persistence.js';
 import { validarProposta } from './validacao.js';
@@ -199,6 +200,8 @@ export function legendaResumo(li=null){
   })).filter(l=>l.qtd>0);
   const nTrechos = trechosCerca().filter(daPlanta).length;
   if(nTrechos) out.push({tipoId:'cerca', qtd:nTrechos});
+  const nMuros = state.plantas.reduce((n,pl,i)=>n + (li===null || i===li ? (pl.muros||[]).length : 0), 0);
+  if(nMuros) out.push({tipoId:'muro', qtd:nMuros});
   return out;
 }
 // Grupos gerados (por tipo, vivos) no lugar da entrada {gerado:true} da Estrutura
@@ -257,7 +260,7 @@ export function pageEstrutura(){
 }
 // Planta sem nenhum conteúdo (em projetos multi-planta não gera página de Mapeamento)
 export function plantaVazia(pl){
-  return !pl.imagem && !pl.pins.length && !(pl.cercas||[]).length && !(pl.areas||[]).length && !(pl.etiquetas||[]).length;
+  return !pl.imagem && !pl.pins.length && !(pl.cercas||[]).length && !(pl.areas||[]).length && !(pl.etiquetas||[]).length && !(pl.muros||[]).length;
 }
 // Tamanho estimado (px) da caixa da etiqueta no PDF (a altura real não é medida):
 // fonte 12px, line-height 1.3, padding 4px 8px, borda 1.5px, largura máx. 180px.
@@ -308,37 +311,66 @@ function legendaMapeamento(pl, li){
       </div>`;
   return {html, h};
 }
-// Foco de câmera direcional no Mapeamento: setor com a ponta em arco desenhado num canvas e
+// Foco de câmera no Mapeamento: setor com a ponta em arco (ou círculo, na PTZ) desenhado num canvas e
 // emitido como <img> (html2canvas não faz clip-path e o SVG inline é instável). Padrão 72px de
-// comprimento; alcance (Bullet/Dome) multiplica o comprimento e a abertura de cada lado vem do pin.
-export const CONE_PDF_L0 = 72;
-export function coneMapeamento(p, t, left, top){
-  const L = CONE_PDF_L0*alcanceDe(p), ab = aberturaDe(p);
+// comprimento (PTZ: raio 60); alcance (Bullet/Dome) multiplica o comprimento e a abertura de cada lado
+// vem do pin. segs = muros em px da página: cortam o foco (polígono de visão de js/visao.js).
+export const CONE_PDF_L0 = 72, PTZ_PDF_R = 60;
+export function coneMapeamento(p, t, left, top, segs=[]){
+  const L = t.foco360 ? PTZ_PDF_R : CONE_PDF_L0*alcanceDe(p), ab = aberturaDe(p);
   const S = Math.ceil(2*L + 4), c = S/2, K = 2; // K: canvas em 2x para ficar nítido no PDF
   const cv = document.createElement('canvas');
   cv.width = cv.height = S*K;
   const ctx = cv.getContext('2d');
   ctx.scale(K, K);
-  const a0 = ((p.direcao||0) - ab.esq - 90)*Math.PI/180, a1 = ((p.direcao||0) + ab.dir - 90)*Math.PI/180;
-  ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, L, a0, a1); ctx.closePath();
-  ctx.fillStyle = t.color+'66'; ctx.fill();
-  ctx.lineWidth = 1.5; ctx.strokeStyle = t.color+'CC'; ctx.stroke();
-  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}" style="position:absolute;left:${left-c}px;top:${top-c}px;width:${S}px;height:${S}px;">`;
+  const dir = p.direcao||0;
+  const poly = segs.length ? (t.foco360 ? poligonoVisao(left, top, L, 0, 360, segs, true) : poligonoVisao(left, top, L, dir-ab.esq, dir+ab.dir, segs)) : null;
+  ctx.beginPath();
+  if(poly){
+    poly.forEach((q,i)=>{ const x = q.x-left+c, y = q.y-top+c; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  } else if(t.foco360){
+    ctx.arc(c, c, L, 0, Math.PI*2);
+  } else {
+    ctx.moveTo(c, c); ctx.arc(c, c, L, (dir - ab.esq - 90)*Math.PI/180, (dir + ab.dir - 90)*Math.PI/180);
+  }
+  ctx.closePath();
+  ctx.fillStyle = t.color + (t.foco360 ? '40' : '66'); ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = t.color + (t.foco360 ? '88' : 'CC'); ctx.stroke();
+  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}${poly?'|cortado':''}" style="position:absolute;left:${left-c}px;top:${top-c}px;width:${S}px;height:${S}px;">`;
+}
+// Muros da planta num canvas do tamanho da imagem (rect), emitido como <img> por cima das áreas
+export function murosImg(pl, rect){
+  const muros = pl.muros||[];
+  if(!muros.length) return '';
+  const K = 2, cv = document.createElement('canvas');
+  cv.width = Math.ceil(rect.w*K); cv.height = Math.ceil(rect.h*K);
+  const ctx = cv.getContext('2d');
+  ctx.scale(K, K);
+  const cor = typeById('muro').color;
+  muros.forEach(m=>{
+    ctx.beginPath();
+    m.pontos.forEach((q,i)=>{ const x = q.x/100*rect.w, y = q.y/100*rect.h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    if(m.fechado){ ctx.closePath(); ctx.fillStyle = cor+'33'; ctx.fill(); }
+    ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = cor; ctx.stroke();
+  });
+  return `<img src="${cv.toDataURL('image/png')}" data-muros="${muros.length}" style="position:absolute;left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;">`;
 }
 function pageMapeamento(pl, dims, titulo, li){
   // planta logo abaixo do cabeçalho (top 155) até o rodapé (y 940), descontando a legenda
   const leg = legendaMapeamento(pl, li);
   const TOP = 155, BOX_W = PW - 128, BOX_H = 940 - TOP - (leg.h ? leg.h + 12 : 0);
   const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
+  const segs = segmentosMuros(pl, rect.w, rect.h, rect.x, rect.y);
   const pinsHtml = pl.pins.map((p,pi)=>{
     const t = typeById(p.tipoId);
     const left = rect.x + (p.x/100)*rect.w;
     const top = rect.y + (p.y/100)*rect.h;
-    const cone = !t.cameraLike ? '' : (t.foco360
-      ? `<div style="position:absolute;left:${left}px;top:${top}px;width:120px;height:120px;border-radius:50%;background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;transform:translate(-50%,-50%);"></div>`
-      : coneMapeamento(p, t, left, top));
+    const cone = t.cameraLike ? coneMapeamento(p, t, left, top, segs) : '';
+    // portão/porta/janela preso a um muro: barra alinhada com a parede por baixo do ícone
+    const gm = geomNoMuro(p, pl, rect.w, rect.h);
+    const marca = gm ? `<div style="position:absolute;left:${left}px;top:${top}px;width:44px;height:8px;border-radius:2px;background:${t.color};border:1.5px solid #fff;transform:translate(-50%,-50%) rotate(${gm.ang}deg);"></div>` : '';
     const badge = t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(li, pi)}</span>`;
-    return `${cone}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
+    return `${cone}${marca}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');
   const cercaHtml = (pl.cercas||[]).map(c=>{
     const segs = [];
@@ -363,6 +395,7 @@ function pageMapeamento(pl, dims, titulo, li){
     <div style="position:absolute;top:${TOP}px;left:64px;right:64px;height:${BOX_H}px;border-radius:8px;overflow:hidden;background:#F4F6F9;border:1px solid #E3E8EF;">
       ${pl.imagem ? `<div style="width:100%;height:100%;background-image:url('${pl.imagem}');background-size:contain;background-position:center;background-repeat:no-repeat;"></div>` : `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8FA3BF;font-size:16px;">Planta não anexada</div>`}
       ${areasHtml}
+      ${murosImg(pl, rect)}
       ${cercaHtml}
       ${pinsHtml}
       ${etiquetasHtml(pl, rect)}

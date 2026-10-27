@@ -35,6 +35,7 @@ export function normalizarProjeto(loaded){
     if(!pl.cercas) pl.cercas = [];
     if(!pl.areas) pl.areas = [];
     if(!pl.etiquetas) pl.etiquetas = [];
+    if(!pl.muros) pl.muros = [];
     if(!pl.selectedTipo) pl.selectedTipo = 'bullet';
     pl.pins.forEach(p=>{ if(!p.id) p.id = novoId(); });
     pl.cercas.forEach(c=>{ if(!c.id) c.id = novoId(); });

@@ -6,6 +6,8 @@ import { renderContent, resetRolagem } from '../nav.js';
 import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo, cancelAreaDraw } from './areas.js';
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
 import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, encaixarEtiqueta, ETQ_COR } from './etiquetas.js';
+import { tplMuroBar, tplMuroRows, renderMuros, muroClique, muroDragAtivo, cancelarTracoMuro } from './muros.js';
+import { segmentosMuros, poligonoVisao, poligonoPath, geomNoMuro, encaixarNoMuro, ABERTURAS_MURO } from '../visao.js';
 
 export function tplPlanta(){
   const pl = state.planta;
@@ -52,6 +54,7 @@ export function tplPlanta(){
         <button class="btn danger small" onclick="cercaCancelar()">✕ Cancelar</button>
         <span class="hint" style="margin:0;">Toque na planta para adicionar pontos (mín. 2). Concluir com menos de 2 descarta.</span>
       </div>` : ''}
+      ${pl.selectedTipo==='muro' && pl.imagem ? tplMuroBar() : ''}
       ${pl.selectedTipo==='area' && pl.imagem ? tplAreaPalette() : ''}
       <div id="plantaScroll" class="${pl.selectedTipo==='area' ? 'modo-area' : ''}">
         ${pl.imagem
@@ -61,13 +64,13 @@ export function tplPlanta(){
           : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
       </div>
       <div class="pinlist">
-        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
+        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0 && !(pl.muros||[]).length) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
             <b style="font-size:12px;color:var(--text-mid);width:18px;">${typeById(p.tipoId).cenario ? '' : numeroDoPin(state.plantaAtiva, pi)}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
               ${CATEGORIAS_INSERIR.map(c=>{
-                const ops = c.tipos.filter(id=>id!=='cerca' || p.tipoId==='cerca');
+                const ops = c.tipos.filter(id=>(id!=='cerca' && id!=='muro') || p.tipoId===id);
                 return ops.length ? `<optgroup label="${c.label}">${ops.map(id=>`<option value="${id}" ${id===p.tipoId?'selected':''}>${typeById(id).label}</option>`).join('')}</optgroup>` : '';
               }).join('')}
             </select>
@@ -86,6 +89,7 @@ export function tplPlanta(){
             <span style="font-size:11px;color:var(--text-mid);">${c.pontos.length} pontos</span>
             <button class="btn danger small" onclick="removeCerca(${ci})">✕</button>
           </div>`).join('')}
+        ${tplMuroRows()}
         ${tplAreaRows()}
         ${tplEtiquetaRows()}
       </div>
@@ -98,7 +102,7 @@ let suppressNextClick = false;
 let pinch = null;
 let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem traçado
 
-export function cancelarTraco(){ tracoAtual = null; }
+export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); }
 export function selectPlanta(i){
   if(i===state.plantaAtiva) return;
   cancelarTraco();
@@ -114,7 +118,7 @@ export function addPlanta(){
 export function removePlanta(i){
   const pt = state.plantas[i];
   if(!pt) return;
-  const temConteudo = pt.imagem || pt.pins.length || pt.cercas.length || pt.areas.length || pt.etiquetas.length;
+  const temConteudo = pt.imagem || pt.pins.length || pt.cercas.length || pt.areas.length || pt.etiquetas.length || (pt.muros||[]).length;
   if(temConteudo && !confirm(`Excluir a planta "${pt.nome||('Planta '+(i+1))}" e tudo que está nela?`)) return;
   cancelarTraco();
   state.plantas.splice(i,1);
@@ -154,6 +158,7 @@ document.addEventListener('pointerdown', e=>{
 });
 export function selectTipo(id){
   if(state.planta.selectedTipo==='cerca' && id!=='cerca') tracoAtual = null;
+  if(state.planta.selectedTipo==='muro' && id!=='muro') cancelarTracoMuro();
   state.planta.selectedTipo = id;
   renderContent();
 }
@@ -256,7 +261,7 @@ export function afterPlantaRender(){
   if(img){
     img.onclick = (e)=>{
       if(suppressNextClick){ suppressNextClick = false; return; }
-      if(etiquetaSuprimeClique()) return;
+      if(etiquetaSuprimeClique() || muroDragAtivo()) return;
       if(state.planta.selectedTipo==='area') return;
       const rect = img.getBoundingClientRect();
       const x = ((e.clientX-rect.left)/rect.width)*100;
@@ -269,6 +274,7 @@ export function afterPlantaRender(){
         if(inp){ inp.focus({preventScroll:true}); inp.select(); }
         return;
       }
+      if(state.planta.selectedTipo==='muro'){ muroClique(x, y, rect); return; }
       if(state.planta.selectedTipo==='cerca'){
         tracoAtual = tracoAtual || [];
         tracoAtual.push({x, y});
@@ -276,7 +282,9 @@ export function afterPlantaRender(){
         return;
       }
       const t = typeById(state.planta.selectedTipo);
-      state.planta.pins.push({id:novoId(), tipoId:t.id, label:t.label, qtd:1, x, y, direcao:0, fotoLocal:null, fotoView:null});
+      const novo = {id:novoId(), tipoId:t.id, label:t.label, qtd:1, x, y, direcao:0, fotoLocal:null, fotoView:null};
+      encaixarNoMuro(novo, state.planta, rect.width, rect.height); // portão/porta/janela perto de um muro grudam nele
+      state.planta.pins.push(novo);
       renderContent();
     };
     img.onpointerdown = (e)=>{
@@ -287,12 +295,13 @@ export function afterPlantaRender(){
     state.planta.pins.forEach((p,pi)=>{
       const t = typeById(p.tipoId);
       if(t.cameraLike && t.foco360){
-        // PTZ/Speed Dome enxerga 360° — círculo translúcido, sem handle de rotação.
-        // Usa o mesmo id 'cone-' para o updatePinDOM mover junto (o rotate() é inócuo num círculo).
-        const circ = document.createElement('div');
+        // PTZ/Speed Dome enxerga 360° — círculo translúcido (cortado pelos muros), sem handle de rotação
+        const circ = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         circ.id = 'cone-'+pi;
-        circ.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;width:110px;height:110px;border-radius:50%;transform:translate(-50%,-50%);background:${t.color}40;border:1.5px solid ${t.color}88;box-sizing:border-box;pointer-events:none;z-index:1;`;
+        circ.innerHTML = `<path fill="${t.color}40" stroke="${t.color}88" stroke-width="1.5"/>`;
+        circ.style.cssText = 'position:absolute;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;z-index:1;';
         wrap.appendChild(circ);
+        posicionarFoco(pi);
       } else if(t.cameraLike){
         // Foco em setor com a ponta em arco (SVG em px, posição em % — acompanha o zoom)
         const cone = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -330,7 +339,9 @@ export function afterPlantaRender(){
       pin.innerHTML = ICONS[t.id] + (t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(state.plantaAtiva, pi)}</span>`);
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
+      posicionarMarcaMuro(pi);
     });
+    renderMuros(wrap, ()=>state.planta.pins.forEach((_,i)=>updatePinDOM(i)));
     renderCercas(wrap);
     renderAreas(wrap);
     renderEtiquetas(wrap);
@@ -338,7 +349,18 @@ export function afterPlantaRender(){
       img.addEventListener('load', ()=>{
         const w = document.getElementById('plantaWrap');
         if(w) renderCercas(w);
+        atualizarFocos();
       });
+    }
+    // zoom/pinch mudam o tamanho da planta em px: o corte dos focos pelos muros (calculado em px) é refeito
+    if(focoObs) focoObs.disconnect();
+    focoObs = null;
+    if((state.planta.muros||[]).length && typeof ResizeObserver!=='undefined'){
+      focoObs = new ResizeObserver(()=>{
+        if(!wrap.isConnected){ focoObs && focoObs.disconnect(); return; }
+        atualizarFocos();
+      });
+      focoObs.observe(wrap);
     }
   }
   attachPinchZoom();
@@ -397,6 +419,7 @@ export function onPointerDrag(e){
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
     pin.x = x; pin.y = y;
+    encaixarNoMuro(pin, state.planta, rect.width, rect.height);
   } else if(dragState.type==='rotate'){
     const cx = rect.left + (pin.x/100)*rect.width;
     const cy = rect.top + (pin.y/100)*rect.height;
@@ -445,22 +468,58 @@ export function updatePinDOM(pi){
   const pinEl = document.getElementById('pinicon-'+pi);
   if(pinEl){ pinEl.style.left = pin.x+'%'; pinEl.style.top = pin.y+'%'; }
   const t = typeById(pin.tipoId);
-  if(t.cameraLike && !t.foco360){ posicionarFoco(pi); return; }
-  const coneEl = document.getElementById('cone-'+pi);
-  if(coneEl){ coneEl.style.left = pin.x+'%'; coneEl.style.top = pin.y+'%'; }
+  if(t.cameraLike) posicionarFoco(pi);
+  posicionarMarcaMuro(pi);
+}
+let focoObs = null;
+function atualizarFocos(){
+  state.planta.pins.forEach((p,pi)=>{ if(typeById(p.tipoId).cameraLike) posicionarFoco(pi); });
+}
+// Muros da planta ativa em px do tamanho atual da imagem no editor
+function segsEditor(){
+  const img = document.getElementById('plantaImg');
+  if(!img || !img.clientWidth || !img.clientHeight || !(state.planta.muros||[]).length) return {segs:[], W:0, H:0};
+  const W = img.clientWidth, H = img.clientHeight;
+  return {segs: segmentosMuros(state.planta, W, H), W, H};
+}
+// Portão/porta/janela presos a um muro: barra na cor do item, alinhada com a parede, por baixo do ícone
+function posicionarMarcaMuro(pi){
+  const pin = state.planta.pins[pi], wrap = document.getElementById('plantaWrap');
+  let el = document.getElementById('abmark-'+pi);
+  const img = document.getElementById('plantaImg');
+  const g = (pin && ABERTURAS_MURO.includes(pin.tipoId)) ? geomNoMuro(pin, state.planta, img?.clientWidth||1, img?.clientHeight||1) : null;
+  if(!g){ if(el) el.remove(); return; }
+  if(!el && wrap){
+    el = document.createElement('div');
+    el.id = 'abmark-'+pi;
+    el.className = 'abertura-muro';
+    el.style.cssText = `position:absolute;width:62px;height:10px;border-radius:2px;background:${typeById(pin.tipoId).color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none;z-index:2;`;
+    wrap.appendChild(el);
+  }
+  if(el){
+    el.style.left = g.x+'%'; el.style.top = g.y+'%';
+    el.style.transform = `translate(-50%,-50%) rotate(${g.ang}deg)`;
+  }
 }
 // Redesenha o setor do foco e reposiciona os pontos (ponta = direção/alcance, bordas = abertura)
 function posicionarFoco(pi){
   const pin = state.planta.pins[pi];
-  const L = CONE_L0*alcanceDe(pin), ab = aberturaDe(pin), dir = pin.direcao||0;
+  const t = typeById(pin.tipoId);
+  const L = t.foco360 ? PTZ_R : CONE_L0*alcanceDe(pin), ab = aberturaDe(pin), dir = pin.direcao||0;
   const coneEl = document.getElementById('cone-'+pi);
   if(coneEl){
     const S = 2*L + 4, c = S/2;
     coneEl.setAttribute('width', S); coneEl.setAttribute('height', S);
     coneEl.style.left = pin.x+'%'; coneEl.style.top = pin.y+'%';
+    // muros cortam o foco: polígono de visão em px; sem corte, setor/círculo com arco perfeito
+    const {segs, W, H} = segsEditor();
+    const px = pin.x/100*W, py = pin.y/100*H;
+    const poly = segs.length ? (t.foco360 ? poligonoVisao(px, py, L, 0, 360, segs, true) : poligonoVisao(px, py, L, dir-ab.esq, dir+ab.dir, segs)) : null;
     const path = coneEl.querySelector('path');
-    if(path) path.setAttribute('d', setorPath(c, c, L, dir, ab));
+    if(path) path.setAttribute('d', poly ? poligonoPath(poly, c-px, c-py)
+      : t.foco360 ? `M${c-L},${c} A${L},${L} 0 1 0 ${c+L},${c} A${L},${L} 0 1 0 ${c-L},${c} Z` : setorPath(c, c, L, dir, ab));
   }
+  if(t.foco360) return;
   const coloca = (el, r, deg)=>{
     if(!el) return;
     const q = pontoNaDirecao(0, 0, r, deg);
@@ -545,7 +604,7 @@ export function liveUpdateAbertura(pi, lado, deg){
   updatePinDOM(pi);
 }
 // Comprimento padrão do foco no editor (px); o alcance (Bullet/Dome) multiplica.
-const CONE_L0 = 55;
+const CONE_L0 = 55, PTZ_R = 55;
 
 export function removePin(pi){ state.planta.pins.splice(pi,1); renderContent(); }
 

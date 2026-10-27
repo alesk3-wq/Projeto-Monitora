@@ -143,9 +143,9 @@
     .planta-abhandle{width:24px;height:24px;}
   }
   .cerca-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FDF3F2;border:1px solid #F0C7C0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;}
-  .cerca-vertex{width:14px;height:14px;}
+  .cerca-vertex, .muro-vertex{width:14px;height:14px;}
   @media (pointer: coarse){
-    .cerca-vertex{width:24px;height:24px;}
+    .cerca-vertex, .muro-vertex{width:24px;height:24px;}
   }
   .area-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#F3F6FB;border:1px solid #D6DDE7;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px;}
   .area-chip{border:2px solid var(--chip-cor);background:#fff;color:var(--text-dark);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;}
