@@ -4,6 +4,8 @@ import { ICONS } from '../constants.js';
 import { typeById, fileToDataURL, defaultCropFrac, alcanceDe, aberturaDe, ehEquipamento } from '../utils.js';
 import { renderContent } from '../nav.js';
 import { segmentosMuros, poligonoVisao } from '../visao.js';
+import { infoFocoHtml } from '../pdf.js';
+import { temEscala, alcanceMDe, cegoDoPin, COR_CEGO } from '../escala.js';
 
 export function tplEquipamentos(){
   const multi = state.plantas.length > 1;
@@ -25,6 +27,7 @@ export function tplEquipamentos(){
             <label>Localização na planta (automática)</label>
             <img id="cropPreview-${li}-${pi}" style="width:100%;height:150px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;">
             <label style="margin-top:8px;">Zoom do recorte</label>
+            ${infoFocoHtml(p, pl)}
             <input id="cropSlider-${li}-${pi}" type="range" min="10" max="60" step="1"
               value="${Math.round((p.cropFrac||0.28)*100)}"
               onchange="setCropFrac(${li}, ${pi}, this.value)" style="width:100%;">
@@ -126,7 +129,8 @@ export function generateCropDataURL(pin, planta){
         // px do canvas — visual consistente entre fichas, independente do cropFrac; alcance e abertura
         // de cada lado (Bullet/Dome) vêm do pin, como no editor
         const alc = t.foco360 ? 1 : alcanceDe(pin);
-        const R = 75*alc;
+        const ppmC = temEscala(pl) ? (cw*dw/cropW)/pl.escala.metrosLargura : null;
+        const R = ppmC ? alcanceMDe(pin)*ppmC : 75*alc;
         ctx.fillStyle = t.color + '40';
         const ab = aberturaDe(pin), dirc = pin.direcao||0;
         const poly = segs.length ? (t.foco360 ? poligonoVisao(markerX, markerY, R, 0, 360, segs, true) : poligonoVisao(markerX, markerY, R, dirc-ab.esq, dirc+ab.dir, segs)) : null;
@@ -147,6 +151,18 @@ export function generateCropDataURL(pin, planta){
           ctx.arc(markerX, markerY, R, a - ab.esq*Math.PI/180, a + ab.dir*Math.PI/180);
           ctx.closePath();
           ctx.fill();
+        }
+        // ponto cego (Bullet/Dome com escala): faixa vermelha junto à câmera, cortada pelos muros
+        const cm = (ppmC && t.ajustaAlcance) ? cegoDoPin(pin) : 0;
+        if(cm > 0){
+          const Rc = Math.min(cm*ppmC, R);
+          const pc = segs.length ? poligonoVisao(markerX, markerY, Rc, dirc-ab.esq, dirc+ab.dir, segs) : null;
+          ctx.beginPath();
+          if(pc) pc.forEach((q,i)=> i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+          else { const a2 = (dirc - 90) * Math.PI/180; ctx.moveTo(markerX, markerY); ctx.arc(markerX, markerY, Rc, a2 - ab.esq*Math.PI/180, a2 + ab.dir*Math.PI/180); }
+          ctx.closePath();
+          ctx.fillStyle = COR_CEGO + '55'; ctx.fill();
+          ctx.lineWidth = 1; ctx.strokeStyle = COR_CEGO; ctx.stroke();
         }
       }
       ctx.beginPath();

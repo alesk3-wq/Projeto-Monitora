@@ -653,6 +653,30 @@ try{
       assert('sem escala: sem ponto cego, sem campo de altura, foco no tamanho antigo', !(document.querySelector('#cone-0 path.cego')?.getAttribute('d')) && !document.getElementById('altura-0') && near(Lcone(), 2*55+4, 1));
       pl0.imagem = sv.imagem; pl0.pins = sv.pins; if(sv.escala) pl0.escala = sv.escala; else delete pl0.escala; pl0.muros = sv.muros; pl0.selectedTipo = sv.sel; pl0.zoom = sv.zoom; state.plantaAtiva = svAtiva;
     }
+    {
+      const U3 = await import('./js/utils.js');
+      const tb = U3.typeById('bullet');
+      const pB = {tipoId:'bullet', direcao:90, alcanceM:40, altura:18, abEsq:25, abDir:25};
+      const semEsc = PD2.coneMapeamento(pB, tb, 500, 400, []);
+      assert('PDF sem escala: cone igual ao de hoje (sem data-cego)', !semEsc.includes('data-cego') && semEsc.includes('data-cone="72.0|'));
+      const comEsc = PD2.coneMapeamento(pB, tb, 500, 400, [], 10);
+      assert('PDF com escala: alcance em px reais + ponto cego', comEsc.includes('data-cone="400.0|') && /data-cego="13\.\d"/.test(comEsc));
+      assert('PDF: foco gigante limitado (canvas não estoura)', PD2.coneMapeamento({...pB, alcanceM:150}, tb, 500, 400, [], 50).includes('data-cone="1500.0|'));
+      assert('PDF: PTZ com escala = 30 m, sem ponto cego', (()=>{ const s = PD2.coneMapeamento({tipoId:'ptz'}, U3.typeById('ptz'), 500, 400, [], 10); return s.includes('data-cone="300.0|') && !s.includes('data-cego'); })());
+      assert('ficha: linha de altura/alcance/ponto cego só com escala', PD2.infoFocoHtml(pB, {escala:{metrosLargura:50}}).includes('Ponto cego: 13,3 m') && PD2.infoFocoHtml(pB, {})==='' && PD2.infoFocoHtml({tipoId:'ptz'}, {escala:{metrosLargura:50}})==='');
+      const mkPl = (esc)=>({nome:'X', imagem:null, pins:[{id:'q1',tipoId:'bullet',label:'B',qtd:1,x:30,y:50,direcao:90,alcanceM:20,altura:18,abEsq:25,abDir:25}], cercas:[], areas:[], etiquetas:[], muros:[], ...(esc?{escala:{metrosLargura:50}}:{})});
+      const hSc = PD2.pageMapeamento(mkPl(true), {w:2000,h:1000}, 'M', 0), hNo = PD2.pageMapeamento(mkPl(false), {w:2000,h:1000}, 'M', 0);
+      assert('Mapeamento: cada planta usa a própria escala (só a escalada tem ponto cego)', hSc.includes('data-cego') && !hNo.includes('data-cego'));
+      assert('ficha: pageEquipamento mostra a linha com a planta escalada', PD2.pageEquipamento(pB, 1, null, {escala:{metrosLargura:50}}).includes('Ponto cego: 13,3 m') && !PD2.pageEquipamento(pB, 1, null, {}).includes('Ponto cego'));
+      // recorte da ficha com escala: gera e difere do sem escala
+      const EQ = await import('./js/tabs/equipamentos.js');
+      const cvC = document.createElement('canvas'); cvC.width = 1000; cvC.height = 1000;
+      const plC = {imagem: cvC.toDataURL('image/png'), muros:[], pins:[]};
+      const c0 = await EQ.generateCropDataURL(pB, {...plC, pins:[{...pB,x:50,y:50}]});
+      const c1 = await EQ.generateCropDataURL({...pB,x:50,y:50}, {...plC, escala:{metrosLargura:100}});
+      const c0b = await EQ.generateCropDataURL({...pB,x:50,y:50}, plC);
+      assert('recorte da ficha: com escala desenha foco em metros e ponto cego (difere do sem escala)', c1 && c0b && c1 !== c0b);
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',

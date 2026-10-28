@@ -8,6 +8,7 @@ import { segmentosMuros, poligonoVisao, geomNoMuro } from './visao.js';
 import { gruposGerados, secaoGerada } from './tabs/estrutura.js';
 import { exportarProjeto } from './persistence.js';
 import { validarProposta } from './validacao.js';
+import { pxPorMetro, temEscala, alcanceMDe, alturaDe, cegoDoPin, fmtM, COR_CEGO } from './escala.js';
 
 function loadImageDims(src){
   return new Promise((resolve)=>{
@@ -316,8 +317,9 @@ function legendaMapeamento(pl, li){
 // comprimento (PTZ: raio 60); alcance (Bullet/Dome) multiplica o comprimento e a abertura de cada lado
 // vem do pin. segs = muros em px da página: cortam o foco (polígono de visão de js/visao.js).
 export const CONE_PDF_L0 = 72, PTZ_PDF_R = 60;
-export function coneMapeamento(p, t, left, top, segs=[]){
-  const L = t.foco360 ? PTZ_PDF_R : CONE_PDF_L0*alcanceDe(p), ab = aberturaDe(p);
+export const PDF_L_MAX = 1500;
+export function coneMapeamento(p, t, left, top, segs=[], ppm=null){
+  const L = ppm ? Math.min(alcanceMDe(p)*ppm, PDF_L_MAX) : (t.foco360 ? PTZ_PDF_R : CONE_PDF_L0*alcanceDe(p)), ab = aberturaDe(p);
   const S = Math.ceil(2*L + 4), c = S/2, K = 2; // K: canvas em 2x para ficar nítido no PDF
   const cv = document.createElement('canvas');
   cv.width = cv.height = S*K;
@@ -336,7 +338,19 @@ export function coneMapeamento(p, t, left, top, segs=[]){
   ctx.closePath();
   ctx.fillStyle = t.color + (t.foco360 ? '40' : '66'); ctx.fill();
   ctx.lineWidth = 1.5; ctx.strokeStyle = t.color + (t.foco360 ? '88' : 'CC'); ctx.stroke();
-  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}${poly?'|cortado':''}" style="position:absolute;left:${left-c}px;top:${top-c}px;width:${S}px;height:${S}px;">`;
+  // ponto cego (Bullet/Dome com escala): faixa vermelha junto à câmera, também cortada pelos muros
+  const cm = (ppm && t.ajustaAlcance) ? cegoDoPin(p) : 0;
+  if(cm > 0){
+    const R = Math.min(cm*ppm, L);
+    const pc = segs.length ? poligonoVisao(left, top, R, dir-ab.esq, dir+ab.dir, segs) : null;
+    ctx.beginPath();
+    if(pc) pc.forEach((q,i)=>{ const x = q.x-left+c, y = q.y-top+c; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    else { ctx.moveTo(c, c); ctx.arc(c, c, R, (dir - ab.esq - 90)*Math.PI/180, (dir + ab.dir - 90)*Math.PI/180); }
+    ctx.closePath();
+    ctx.fillStyle = COR_CEGO + '55'; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = COR_CEGO; ctx.stroke();
+  }
+  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}${poly?'|cortado':''}"${cm>0?` data-cego="${cm.toFixed(1)}"`:''} style="position:absolute;left:${left-c}px;top:${top-c}px;width:${S}px;height:${S}px;">`;
 }
 // Muros da planta num canvas do tamanho da imagem (rect), emitido como <img> por cima das áreas
 export function murosImg(pl, rect){
@@ -355,17 +369,18 @@ export function murosImg(pl, rect){
   });
   return `<img src="${cv.toDataURL('image/png')}" data-muros="${muros.length}" style="position:absolute;left:${rect.x}px;top:${rect.y}px;width:${rect.w}px;height:${rect.h}px;">`;
 }
-function pageMapeamento(pl, dims, titulo, li){
+export function pageMapeamento(pl, dims, titulo, li){
   // planta logo abaixo do cabeçalho (top 155) até o rodapé (y 940), descontando a legenda
   const leg = legendaMapeamento(pl, li);
   const TOP = 155, BOX_W = PW - 128, BOX_H = 940 - TOP - (leg.h ? leg.h + 12 : 0);
   const rect = dims ? containRect(dims.w, dims.h, BOX_W, BOX_H) : {x:0, y:0, w:BOX_W, h:BOX_H};
   const segs = segmentosMuros(pl, rect.w, rect.h, rect.x, rect.y);
+  const ppm = pxPorMetro(pl, rect.w);
   const pinsHtml = pl.pins.map((p,pi)=>{
     const t = typeById(p.tipoId);
     const left = rect.x + (p.x/100)*rect.w;
     const top = rect.y + (p.y/100)*rect.h;
-    const cone = t.cameraLike ? coneMapeamento(p, t, left, top, segs) : '';
+    const cone = t.cameraLike ? coneMapeamento(p, t, left, top, segs, ppm) : '';
     // portão/porta/janela preso a um muro: barra alinhada com a parede por baixo do ícone
     const gm = geomNoMuro(p, pl, rect.w, rect.h);
     const marca = gm ? `<div style="position:absolute;left:${left}px;top:${top}px;width:44px;height:8px;border-radius:2px;background:${t.color};border:1.5px solid #fff;transform:translate(-50%,-50%) rotate(${gm.ang}deg);"></div>` : '';
@@ -412,11 +427,16 @@ export function legendaFicha(pin){
   if(!l) return '';
   return `<div style="margin-top:10px;font-size:15px;line-height:1.5;color:#33415A;${TEXTO_JUST}"><b style="color:${BRAND.cor};">${escHtml(l.texto)}</b>${l.desc ? '<br>'+escHtml(l.desc) : ''}</div>`;
 }
-export function pageEquipamento(pin, numero, cropUrl){
+// Linha Altura / Alcance / Ponto cego da ficha (Bullet/Dome numa planta com escala)
+export function infoFocoHtml(pin, pl){
+  if(!temEscala(pl) || !typeById(pin.tipoId).ajustaAlcance) return '';
+  return `<div style="margin-top:6px;font-size:15px;line-height:1.5;color:#33415A;">Altura: ${fmtM(alturaDe(pin))} · Alcance: ${fmtM(alcanceMDe(pin))} · Ponto cego: ${fmtM(cegoDoPin(pin))}</div>`;
+}
+export function pageEquipamento(pin, numero, cropUrl, pl=null){
   const t = typeById(pin.tipoId);
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';
   const placeholder = (txt)=>`<div style="${boxStyle}display:flex;align-items:center;justify-content:center;color:#9AA7BA;font-size:15px;">${txt}</div>`;
-  const legendaItem = legendaFicha(pin);
+  const legendaItem = legendaFicha(pin) + infoFocoHtml(pin, pl);
   const rotulo = (txt)=>`<div style="font-weight:800;color:${BRAND.cor};font-size:15px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">${txt}</div>`;
   // Fotos não anexadas não geram quadro vazio. Sem nenhuma foto, o recorte da planta cresce e fica
   // centralizado (700×490, proporção do recorte 500×350); com uma foto, as colunas mantêm a largura
@@ -509,7 +529,7 @@ export async function gerarPDF(){
   if(mapPages.length===0) mapPages.push(pageMapeamento(state.plantas[0], null, 'Mapeamento', 0));
   const pages = [
     pageCapa(), pageSumario(), pageObjetivo(), ...mapPages, pageEstrutura(),
-    ...gp.map((g,i)=>pageEquipamento(g.p, g.numero, equipCrops[i])),
+    ...gp.map((g,i)=>pageEquipamento(g.p, g.numero, equipCrops[i], g.pl)),
     pagePremissas(), pageEncerramento()
   ];
   const { jsPDF } = window.jspdf;
