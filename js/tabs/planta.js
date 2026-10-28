@@ -1,6 +1,6 @@
 import { state, novaPlanta, limparPlanta, temVistaAtiva } from '../state.js';
 import { numeroDoPinEm } from '../numeracao.js';
-import { limparRefsOrfas } from '../aerea.js';
+import { limparRefsOrfas, refsDaPlanta } from '../aerea.js';
 import { tplAbasVistas, tplVistaImagem, tplMapaAereo, mostrandoMapa, montarMapa, fimTrocaImagem, tplEquipPlanta, tplRefRow, criarRefNoClique, temConteudoVista, FERRAMENTAS_VISTA } from './aerea.js';
 import { EQUIP_TYPES, ICONS, CATEGORIAS_INSERIR } from '../constants.js';
 import { typeById, fileToDataURL, showToast, novoId, alcanceDe, ALCANCE_MIN, ALCANCE_MAX, aberturaDe, fixarAbertura, setorPath, pontoNaDirecao, ABERTURA_MIN, ABERTURA_MAX } from '../utils.js';
@@ -20,7 +20,7 @@ export function tplPlanta(){
   const naTelaMapa = mostrandoMapa(pl); // vista sem imagem ou trocando a imagem: mapa em vez do editor
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
-    <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco, e os pontos nas bordas do arco abrem ou fecham cada lado do foco).</p>
+    <p class="pagesub">${vista ? 'Busque o local no mapa de satélite e capture, ou envie uma imagem aérea própria; depois posicione os equipamentos da planta e ajuste o foco de cada câmera nesta vista.' : `Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco, e os pontos nas bordas do arco abrem ou fecham cada lado do foco).`}</p>
     <div class="card">
       <div class="planta-tabs">
         ${state.plantas.map((pt,i)=>`
@@ -79,7 +79,7 @@ export function tplPlanta(){
           ? `<div id="plantaWrap" style="position:relative;width:${pl.zoom||100}%;">
                <img id="plantaImg" src="${pl.imagem}">
              </div>`
-          : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
+          : `<div class="empty-hint">${vista ? 'Capture o local no mapa de satélite ou envie uma imagem aérea própria para começar.' : 'Envie uma imagem da planta baixa para começar a posicionar os equipamentos.'}</div>`}
       </div>`}
       <div class="pinlist">
         ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0 && !(pl.muros||[]).length) ? `<div class="hint">${vista ? 'Nada posicionado nesta vista ainda.' : 'Nenhum equipamento posicionado ainda.'}</div>` : pl.pins.map((p,pi)=> p.ref ? tplRefRow(p, pi) : `
@@ -138,7 +138,9 @@ export function removePlanta(i){
   const pt = state.plantas[i];
   if(!pt) return;
   const temConteudo = pt.imagem || pt.pins.length || pt.cercas.length || pt.areas.length || pt.etiquetas.length || (pt.muros||[]).length;
-  if(temConteudo && !confirm(`Excluir a planta "${pt.nome||('Planta '+(i+1))}" e tudo que está nela?`)) return;
+  const nRefs = refsDaPlanta(pt);
+  const extra = nRefs ? ` ${nRefs} equipamento(s) colocados em vistas aéreas também saem.` : '';
+  if(temConteudo && !confirm(`Excluir a planta "${pt.nome||('Planta '+(i+1))}" e tudo que está nela?${extra}`)) return;
   cancelarTraco();
   state.plantas.splice(i,1);
   if(state.plantas.length===0) state.plantas.push(novaPlanta('Planta 1'));
@@ -739,6 +741,8 @@ export function removePin(pi){ state.planta.pins.splice(pi,1); renderContent(); 
 export async function handlePlantaUpload(e){
   const f = e.target.files[0]; if(!f) return;
   if(state.planta.aerea && temConteudoVista(state.planta) && !confirm('Trocar a imagem apaga o que está posicionado nesta vista (muros ficam). Continuar?')){ e.target.value=''; return; }
+  const nRefs = state.planta.aerea ? 0 : refsDaPlanta(state.planta);
+  if(nRefs && !confirm(`Trocar a imagem apaga os equipamentos desta planta, e ${nRefs} equipamento(s) colocados em vistas aéreas também saem. Continuar?`)){ e.target.value=''; return; }
   if(isPdfFile(f)){ await handlePlantaPdfUpload(f); e.target.value=''; return; }
   state.planta.imagem = await fileToDataURL(f);
   limparPlanta(state.planta);

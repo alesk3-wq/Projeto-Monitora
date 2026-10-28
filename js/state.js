@@ -23,7 +23,7 @@ export function limparPlanta(pl){
 // Alias vivo: state.planta → vista aérea ativa (state.aereas[state.aereaAtiva]) quando
 // houver uma selecionada; senão a planta ativa (state.plantas[state.plantaAtiva]).
 // Não-enumerável de propósito — fica fora do JSON.stringify (o export serializa
-// só 'plantas' + 'plantaAtiva'). Todo código que opera "na planta ativa"
+// 'plantas'/'plantaAtiva' e 'aereas'/'aereaAtiva'). Todo código que opera "na planta ativa"
 // (editor, áreas, upload, pinch) continua lendo/escrevendo state.planta.
 export function attachPlantaAlias(obj){
   Object.defineProperty(obj, 'planta', {

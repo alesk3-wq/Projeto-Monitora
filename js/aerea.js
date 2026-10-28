@@ -46,19 +46,33 @@ export function novaRef(pinId, x, y){
   return vincularRef({id: novoId(), ref: pinId, x, y, direcao: o?.direcao ?? 0});
 }
 
-// Remove de todas as vistas as referências cujo original não existe; revincula as demais.
+// Remove de todas as vistas as referências cujo original não existe; revincula as demais
+// (vincularRef é idempotente; necessário para refs vindas de .json). Só reatribui v.pins
+// quando a vista tem alguma órfã.
 export function limparRefsOrfas(){
   let removidos = 0;
   (state.aereas || []).forEach(v=>{
     if(!Array.isArray(v.pins)) return;
-    v.pins = v.pins.filter(p=>{
-      if(!p.ref) return true;
-      if(!pinOriginal(p.ref)){ removidos++; return false; }
-      vincularRef(p);
-      return true;
+    let orfas = 0;
+    v.pins.forEach(p=>{
+      if(!p.ref) return;
+      if(pinOriginal(p.ref)) vincularRef(p); else orfas++;
     });
+    if(orfas){
+      v.pins = v.pins.filter(p=>!p.ref || pinOriginal(p.ref));
+      removidos += orfas;
+    }
   });
   return removidos;
+}
+
+// Quantas referências, somando todas as vistas, apontam para pins desta planta.
+export function refsDaPlanta(pl){
+  const ids = new Set((pl?.pins || []).map(p=>p.id).filter(Boolean));
+  if(!ids.size) return 0;
+  let n = 0;
+  (state.aereas || []).forEach(v=>(v.pins || []).forEach(p=>{ if(p.ref && ids.has(p.ref)) n++; }));
+  return n;
 }
 
 // Ids dos pins originais já colocados nesta vista.

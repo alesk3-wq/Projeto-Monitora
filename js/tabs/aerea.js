@@ -12,8 +12,10 @@ import { cancelarTraco, tplControlesFoco } from './planta.js';
 // Ferramentas de desenho que continuam valendo na vista (além dos itens de cenário)
 export const FERRAMENTAS_VISTA = ['area', 'etiqueta', 'muro', 'escala'];
 
+// Conteúdo que uma troca de imagem apagaria. A escala que veio da própria captura (fonte 'mapa')
+// não conta: recapturar só a substitui por outra.
 export function temConteudoVista(v){
-  return !!(v && ((v.pins||[]).length || (v.areas||[]).length || (v.etiquetas||[]).length || (v.cercas||[]).length || v.escala));
+  return !!(v && ((v.pins||[]).length || (v.areas||[]).length || (v.etiquetas||[]).length || (v.cercas||[]).length || (v.escala && v.fonte!=='mapa')));
 }
 
 // ---------- mini-abas ----------
@@ -53,18 +55,19 @@ let resultadosBusca = [];   // últimos resultados do Nominatim…
 let resultadosPl = null;    // …e a vista a que pertencem (sobrevivem a renderContent)
 let resultadoAtivo = -1;
 let buscando = false;
-let vistaMapa = null;       // último enquadramento do mapa {pl, lat, lng, zoom} (atualizado no moveend)
+const vistaMapa = new WeakMap(); // vista → último enquadramento {lat, lng, zoom} (atualizado no moveend)
 let avisouSemMapa = false;  // toast "Mapa indisponível" só uma vez por sessão
 let capturaId = 0;          // token da captura em andamento (uma mais nova ou mudança de tela descarta a anterior)
 
 // Enquadramento inicial do mapa: o último visto nesta vista (sobrevive a renderContent),
 // senão o salvo na captura (pl.mapa), senão o Brasil.
 export function vistaInicial(pl){
-  if(vistaMapa && vistaMapa.pl===pl) return {lat: vistaMapa.lat, lng: vistaMapa.lng, zoom: vistaMapa.zoom};
+  const vm = pl && vistaMapa.get(pl);
+  if(vm) return {lat: vm.lat, lng: vm.lng, zoom: vm.zoom};
   if(pl?.mapa) return {lat: pl.mapa.lat, lng: pl.mapa.lng, zoom: pl.mapa.zoom};
   return {lat:-15.8, lng:-47.9, zoom:4};
 }
-export function lembrarVista(pl, lat, lng, zoom){ vistaMapa = {pl, lat, lng, zoom}; }
+export function lembrarVista(pl, lat, lng, zoom){ if(pl) vistaMapa.set(pl, {lat, lng, zoom}); }
 
 // Resultados da busca de uma vista (gravados para re-render)
 export function definirResultados(pl, lista){
@@ -374,7 +377,7 @@ export function tplRefRow(p, pi){
   return `
           <div class="pinrow pinrow-ref">
             <span class="icon-dot" style="background:${t.color}">${ICONS[t.id]}</span>
-            <b style="font-size:12px;color:var(--text-mid);width:18px;">${numeroDoPinEm(pl, pi)}</b>
+            <b style="font-size:12px;color:var(--text-mid);width:18px;">${t.cenario ? '' : numeroDoPinEm(pl, pi)}</b>
             <span style="flex:1;min-width:140px;font-size:13px;">${t.label} — ${escHtml(p.label)}${o ? ` <span style="color:var(--text-mid);font-size:11px;">· ${escHtml(nomePlanta(o.plantaIdx))}</span>` : ''}</span>
             ${tplControlesFoco(p, pi, pl)}
             <button class="btn danger small" title="Remover desta vista" onclick="removeRef(${pi})">✕</button>

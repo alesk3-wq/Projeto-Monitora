@@ -1055,6 +1055,79 @@ try{
     STx.attachPlantaAlias(state);
     window.renderContent();
   }
+  // ===== Vista aérea: correções da revisão final =====
+  {
+    const AEf = await import('./js/aerea.js');
+    const TAf = await import('./js/tabs/aerea.js');
+    const STf = await import('./js/state.js');
+    const sv = {pl:state.plantas, pa:state.plantaAtiva, ae:state.aereas, aa:state.aereaAtiva};
+    const cf = window.confirm;
+    const cvf = document.createElement('canvas'); cvf.width = 300; cvf.height = 200;
+    const imgf = cvf.toDataURL('image/png');
+    const pA = STf.novaPlanta('A'); pA.imagem = imgf;
+    pA.pins = [{id:'fa1', tipoId:'bullet', label:'Cam', qtd:1, x:10, y:10, direcao:0}, {id:'fa2', tipoId:'dome', label:'D', qtd:1, x:20, y:20}];
+    const pB = STf.novaPlanta('B');
+    pB.pins = [{id:'fb1', tipoId:'bullet', label:'Outra', qtd:1, x:5, y:5}];
+    const v1 = STf.novaAerea('V1'); v1.imagem = imgf;
+    v1.pins = [AEf.novaRef('fa1', 30, 30), AEf.novaRef('fa2', 40, 40)];
+    const v2 = STf.novaAerea('V2');
+    v2.pins = [{id:'rj', ref:'fa1', x:1, y:1, tipoId:'gravado', label:'gravado'}]; // como vem de .json
+    state.plantas = [pA, pB]; state.plantaAtiva = 0; state.aereas = [v1, v2]; state.aereaAtiva = null;
+    // (4) limparRefsOrfas sem órfã não reatribui v.pins, mas vincula refs vindas de .json
+    const arr1 = v1.pins, arr2 = v2.pins;
+    const n0 = AEf.limparRefsOrfas();
+    assert('final: limparRefsOrfas sem órfã mantém o array', n0===0 && v1.pins===arr1 && v2.pins===arr2);
+    assert('final: limparRefsOrfas vincula ref vinda de .json', v2.pins[0].tipoId==='bullet' && v2.pins[0].label==='Cam' && !Object.keys(v2.pins[0]).includes('tipoId'));
+    pA.pins.splice(1, 1); // dome fa2 excluído → órfã em v1
+    const n1 = AEf.limparRefsOrfas();
+    assert('final: limparRefsOrfas com órfã remove só ela', n1===1 && v1.pins.length===1 && v1.pins[0].ref==='fa1' && v2.pins===arr2);
+    pA.pins.push({id:'fa2', tipoId:'dome', label:'D', qtd:1, x:20, y:20});
+    v1.pins.push(AEf.novaRef('fa2', 40, 40));
+    // (2) refsDaPlanta
+    assert('final: refsDaPlanta conta refs de todas as vistas', AEf.refsDaPlanta(pA)===3 && AEf.refsDaPlanta(pB)===0 && AEf.refsDaPlanta(null)===0);
+    window.switchTab('planta'); await waitImg();
+    let msgs = [];
+    window.confirm = (m)=>{ msgs.push(m); return false; };
+    window.removePlanta(0);
+    assert('final: excluir planta avisa refs nas vistas', msgs.length===1 && msgs[0].includes('3 equipamento(s) colocados em vistas aéreas também saem') && state.plantas.length===2);
+    msgs = [];
+    const blobf = await (await fetch(imgf)).blob();
+    const arqf = ()=>({target:{files:[new File([blobf], 'p.png', {type:'image/png'})], value:'x'}});
+    await window.handlePlantaUpload(arqf());
+    assert('final: trocar imagem da planta com refs pede confirm e respeita cancelar', msgs.length===1 && msgs[0].includes('3 equipamento(s) colocados em vistas aéreas') && pA.pins.length===2 && v1.pins.length===2);
+    msgs = [];
+    window.selectPlanta(1);
+    await window.handlePlantaUpload(arqf());
+    assert('final: planta sem refs troca a imagem sem confirm', msgs.length===0 && !!pB.imagem && pB.pins.length===0);
+    window.confirm = cf;
+    // (3) ref cujo original virou cenário: sem número na lista
+    window.selectAerea(0); await waitImg();
+    pA.pins[0].tipoId = 'poste'; window.renderContent(); await waitImg();
+    const rowsRef = [...document.querySelectorAll('.pinlist .pinrow-ref')];
+    assert('final: ref de original cenário sem número na linha', rowsRef.length===2 && rowsRef[0].querySelector('b').textContent.trim()==='' && rowsRef[1].querySelector('b').textContent.trim()==='1');
+    pA.pins[0].tipoId = 'bullet';
+    // (7) textos da vista
+    const sub = document.querySelector('#content .pagesub')?.textContent || '';
+    assert('final: subtítulo da vista não fala de planta baixa', sub.includes('mapa de satélite') && !sub.includes('planta baixa'));
+    window.selectPlanta(0); await waitImg();
+    assert('final: subtítulo da planta mantido', (document.querySelector('#content .pagesub')?.textContent||'').includes('Envie a planta baixa'));
+    // (5) escala vinda da captura não conta como conteúdo
+    const vE = STf.novaAerea('E'); vE.escala = {a:{x:10,y:50}, b:{x:90,y:50}, metros:80, metrosLargura:100};
+    vE.fonte = 'mapa';
+    assert('final: escala da captura (fonte mapa) não conta como conteúdo', !TAf.temConteudoVista(vE));
+    vE.fonte = 'upload';
+    assert('final: escala manual (fonte upload) conta como conteúdo', TAf.temConteudoVista(vE));
+    vE.fonte = 'mapa'; vE.etiquetas = [{texto:'x', x:1, y:1, ax:2, ay:2}];
+    assert('final: vista capturada com etiqueta conta como conteúdo', TAf.temConteudoVista(vE));
+    // (6) enquadramento lembrado por vista (A→B→A)
+    const mA = STf.novaAerea('MA'), mB = STf.novaAerea('MB');
+    TAf.lembrarVista(mA, -22.6, -48.8, 18);
+    TAf.lembrarVista(mB, -10.1, -40.2, 15);
+    assert('final: vistaInicial lembra A depois de B', TAf.vistaInicial(mA).zoom===18 && TAf.vistaInicial(mA).lat===-22.6);
+    assert('final: vistaInicial lembra B', TAf.vistaInicial(mB).zoom===15 && TAf.vistaInicial(mB).lng===-40.2);
+    state.plantas = sv.pl; state.plantaAtiva = sv.pa; state.aereas = sv.ae; state.aereaAtiva = sv.aa;
+    window.renderContent();
+  }
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }
