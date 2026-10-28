@@ -8,6 +8,7 @@ import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
 import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, encaixarEtiqueta, ETQ_COR } from './etiquetas.js';
 import { tplMuroBar, tplMuroRows, renderMuros, muroClique, muroDragAtivo, cancelarTracoMuro } from './muros.js';
 import { tplEscalaBar, tplEscalaStatus, escalaClique, renderEscala, cancelarEscala } from './escalaTool.js';
+import { pxPorMetro, temEscala, alcanceMDe, alturaDe, cegoDoPin, fmtM, ALCANCE_M_MIN, ALCANCE_M_MAX, ALTURA_MIN, ALTURA_MAX, COR_CEGO } from '../escala.js';
 import { segmentosMuros, poligonoVisao, poligonoPath, geomNoMuro, encaixarNoMuro, ABERTURAS_MURO } from '../visao.js';
 
 export function tplPlanta(){
@@ -83,7 +84,8 @@ export function tplPlanta(){
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">
             ${typeById(p.tipoId).cameraLike && !typeById(p.tipoId).foco360 ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
-            ${typeById(p.tipoId).ajustaAlcance ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>${tplAberturaControles(p, pi)}` : ''}
+            ${typeById(p.tipoId).ajustaAlcance && temEscala(pl) ? tplAlcanceMetros(p, pi) + tplAberturaControles(p, pi) : ''}
+            ${typeById(p.tipoId).ajustaAlcance && !temEscala(pl) ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>${tplAberturaControles(p, pi)}` : ''}
             <button class="btn danger small" onclick="removePin(${pi})">✕</button>
           </div>
         `).join('')}
@@ -314,7 +316,7 @@ export function afterPlantaRender(){
         // Foco em setor com a ponta em arco (SVG em px, posição em % — acompanha o zoom)
         const cone = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         cone.id = 'cone-'+pi;
-        cone.innerHTML = `<path fill="${t.color}55" stroke="${t.color}" stroke-opacity="0.85" stroke-width="1.5"/>`;
+        cone.innerHTML = `<path fill="${t.color}55" stroke="${t.color}" stroke-opacity="0.85" stroke-width="1.5"/><path class="cego" fill="${COR_CEGO}55" stroke="${COR_CEGO}" stroke-width="1"/>`;
         cone.style.cssText = 'position:absolute;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;z-index:1;';
         wrap.appendChild(cone);
 
@@ -337,7 +339,15 @@ export function afterPlantaRender(){
             wrap.appendChild(h);
           });
         }
+        if(t.ajustaAlcance && temEscala(state.planta)){
+          const hl = document.createElement('div');
+          hl.id = 'hlabel-'+pi;
+          hl.className = 'foco-rotulo';
+          hl.style.cssText = 'position:absolute;transform:translate(-50%,0);font-size:10px;line-height:1.2;white-space:nowrap;background:rgba(255,255,255,.85);color:#222;padding:1px 4px;border-radius:3px;pointer-events:none;z-index:3;';
+          wrap.appendChild(hl);
+        }
         posicionarFoco(pi);
+        atualizarRotulos(pi);
       }
       const pin = document.createElement('div');
       pin.id = 'pinicon-'+pi;
@@ -364,7 +374,7 @@ export function afterPlantaRender(){
     // zoom/pinch mudam o tamanho da planta em px: o corte dos focos pelos muros (calculado em px) é refeito
     if(focoObs) focoObs.disconnect();
     focoObs = null;
-    if((state.planta.muros||[]).length && typeof ResizeObserver!=='undefined'){
+    if(((state.planta.muros||[]).length || temEscala(state.planta)) && typeof ResizeObserver!=='undefined'){
       focoObs = new ResizeObserver(()=>{
         if(!wrap.isConnected){ focoObs && focoObs.disconnect(); return; }
         atualizarFocos();
@@ -386,7 +396,13 @@ export function startPinDrag(e, pi){
 export function startRotateDrag(e, pi){
   e.preventDefault(); e.stopPropagation();
   fixarAbertura(state.planta.pins[pi]);
+  const pin0 = state.planta.pins[pi], img0 = document.getElementById('plantaImg');
   dragState = {type:'rotate', index:pi};
+  if(img0){
+    const r0 = img0.getBoundingClientRect();
+    dragState.d0 = Math.hypot(e.clientX - (r0.left + pin0.x/100*r0.width), e.clientY - (r0.top + pin0.y/100*r0.height));
+    dragState.m0 = alcanceMDe(pin0);
+  }
   const el = document.getElementById('rothandle-'+pi);
   if(el) el.style.cursor = 'grabbing';
   document.addEventListener('pointermove', onPointerDrag);
@@ -439,7 +455,12 @@ export function onPointerDrag(e){
     deg = ((deg % 360) + 360) % 360;
     pin.direcao = Math.round(deg) % 360;
     // Bullet/Dome: a distância do ponto ao ícone define o alcance (o ponto fica na ponta do cone)
-    if(typeById(pin.tipoId).ajustaAlcance){
+    const ppm = ppmEditor();
+    if(typeById(pin.tipoId).ajustaAlcance && ppm && dragState.d0 != null){
+      // com escala o arraste é relativo (em metros): afastar/aproximar o ponto soma/subtrai metros
+      const m = dragState.m0 + (Math.hypot(dx, dy) - dragState.d0)/ppm;
+      pin.alcanceM = Math.min(ALCANCE_M_MAX, Math.max(ALCANCE_M_MIN, Math.round(m*2)/2));
+    } else if(typeById(pin.tipoId).ajustaAlcance){
       const a = (Math.hypot(dx, dy) - 3) / CONE_L0;
       pin.alcance = Math.round(Math.min(ALCANCE_MAX, Math.max(ALCANCE_MIN, a))*100)/100;
     }
@@ -477,7 +498,7 @@ export function updatePinDOM(pi){
   const pinEl = document.getElementById('pinicon-'+pi);
   if(pinEl){ pinEl.style.left = pin.x+'%'; pinEl.style.top = pin.y+'%'; }
   const t = typeById(pin.tipoId);
-  if(t.cameraLike) posicionarFoco(pi);
+  if(t.cameraLike){ posicionarFoco(pi); atualizarRotulos(pi); }
   posicionarMarcaMuro(pi);
 }
 let focoObs = null;
@@ -514,7 +535,8 @@ function posicionarMarcaMuro(pi){
 function posicionarFoco(pi){
   const pin = state.planta.pins[pi];
   const t = typeById(pin.tipoId);
-  const L = t.foco360 ? PTZ_R : CONE_L0*alcanceDe(pin), ab = aberturaDe(pin), dir = pin.direcao||0;
+  const ppm = ppmEditor();
+  const L = ppm ? alcanceMDe(pin)*ppm : t.foco360 ? PTZ_R : CONE_L0*alcanceDe(pin), ab = aberturaDe(pin), dir = pin.direcao||0;
   const coneEl = document.getElementById('cone-'+pi);
   if(coneEl){
     const S = 2*L + 4, c = S/2;
@@ -527,6 +549,16 @@ function posicionarFoco(pi){
     const path = coneEl.querySelector('path');
     if(path) path.setAttribute('d', poly ? poligonoPath(poly, c-px, c-py)
       : t.foco360 ? `M${c-L},${c} A${L},${L} 0 1 0 ${c+L},${c} A${L},${L} 0 1 0 ${c-L},${c} Z` : setorPath(c, c, L, dir, ab));
+    // ponto cego (Bullet/Dome com escala): faixa vermelha junto à câmera, também cortada pelos muros
+    const cegoPath = coneEl.querySelector('path.cego');
+    if(cegoPath){
+      const cm = (ppm && t.ajustaAlcance) ? cegoDoPin(pin) : 0;
+      if(cm > 0){
+        const R = cm*ppm;
+        const pc = segs.length ? poligonoVisao(px, py, R, dir-ab.esq, dir+ab.dir, segs) : null;
+        cegoPath.setAttribute('d', pc ? poligonoPath(pc, c-px, c-py) : setorPath(c, c, R, dir, ab));
+      } else cegoPath.setAttribute('d', '');
+    }
   }
   if(t.foco360) return;
   const coloca = (el, r, deg)=>{
@@ -541,6 +573,22 @@ function posicionarFoco(pi){
   coloca(document.getElementById('abhandle-esq-'+pi), rb, dir-ab.esq);
   coloca(document.getElementById('abhandle-dir-'+pi), rb, dir+ab.dir);
 }
+export function ppmEditor(){
+  const img = document.getElementById('plantaImg');
+  return img ? pxPorMetro(state.planta, img.clientWidth) : null;
+}
+// Rótulo "altura · alcance" ao lado da câmera e "Ponto cego" na linha do pin
+function atualizarRotulos(pi){
+  const pin = state.planta.pins[pi];
+  if(!pin) return;
+  const hl = document.getElementById('hlabel-'+pi);
+  if(hl){
+    hl.textContent = fmtM(alturaDe(pin)) + ' · ' + fmtM(alcanceMDe(pin));
+    hl.style.left = pin.x+'%'; hl.style.top = `calc(${pin.y}% + 20px)`;
+  }
+  const cg = document.getElementById('cego-'+pi);
+  if(cg) cg.textContent = 'Ponto cego: ' + fmtM(cegoDoPin(pin));
+}
 export function syncPinRowControls(){
   state.planta.pins.forEach((p,pi)=>{
     const slider = document.getElementById('dirslider-'+pi);
@@ -548,8 +596,12 @@ export function syncPinRowControls(){
     if(slider) slider.value = p.direcao||0;
     if(lbl) lbl.textContent = (p.direcao||0)+'°';
     const as = document.getElementById('alcslider-'+pi), al = document.getElementById('alclabel-'+pi);
-    if(as) as.value = Math.round(alcanceDe(p)*100);
-    if(al) al.textContent = Math.round(alcanceDe(p)*100)+'%';
+    const comEsc = temEscala(state.planta);
+    if(as) as.value = comEsc ? alcanceMDe(p) : Math.round(alcanceDe(p)*100);
+    if(al) al.textContent = comEsc ? fmtM(alcanceMDe(p)) : Math.round(alcanceDe(p)*100)+'%';
+    const alt = document.getElementById('altura-'+pi);
+    if(alt && document.activeElement !== alt) alt.value = alturaDe(p);
+    atualizarRotulos(pi);
     const ab = aberturaDe(p);
     const ae = document.getElementById('abesq-'+pi), ad = document.getElementById('abdir-'+pi), alb = document.getElementById('ablabel-'+pi);
     if(ae) ae.value = Math.round(ab.esq);
@@ -596,6 +648,27 @@ export function liveUpdateAlcance(pi, pct){
   state.planta.pins[pi].alcance = parseInt(pct)/100;
   const lbl = document.getElementById('alclabel-'+pi);
   if(lbl) lbl.textContent = parseInt(pct)+'%';
+  updatePinDOM(pi);
+}
+// Alcance em metros + altura + ponto cego (Bullet/Dome numa planta com escala)
+function tplAlcanceMetros(p, pi){
+  return `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_M_MIN}" max="${ALCANCE_M_MAX}" step="0.5" value="${alcanceMDe(p)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcanceM(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:44px;">${fmtM(alcanceMDe(p))}</span><span style="font-size:11px;color:var(--text-mid);">Altura (m)</span><input type="number" id="altura-${pi}" min="${ALTURA_MIN}" max="${ALTURA_MAX}" step="0.5" value="${alturaDe(p)}" style="width:60px" oninput="liveUpdateAltura(${pi}, this.value)"><span id="cego-${pi}" style="font-size:11px;color:var(--text-mid);">Ponto cego: ${fmtM(cegoDoPin(p))}</span>`;
+}
+export function liveUpdateAlcanceM(pi, m){
+  const pin = state.planta.pins[pi];
+  const v = parseFloat(m);
+  if(!pin || !Number.isFinite(v)) return;
+  fixarAbertura(pin);
+  pin.alcanceM = Math.min(ALCANCE_M_MAX, Math.max(ALCANCE_M_MIN, v));
+  const lbl = document.getElementById('alclabel-'+pi);
+  if(lbl) lbl.textContent = fmtM(pin.alcanceM);
+  updatePinDOM(pi);
+}
+export function liveUpdateAltura(pi, m){
+  const pin = state.planta.pins[pi];
+  const v = parseFloat(m);
+  if(!pin || !Number.isFinite(v)) return;
+  pin.altura = Math.min(ALTURA_MAX, Math.max(ALTURA_MIN, v));
   updatePinDOM(pi);
 }
 // Sliders de abertura (lado esquerdo / direito) na linha do pin — Bullet/Dome

@@ -625,6 +625,34 @@ try{
       EST.escalaCancelar();
       pl0.imagem = sv.imagem; pl0.pins = sv.pins; if(sv.escala) pl0.escala = sv.escala; else delete pl0.escala; pl0.selectedTipo = sv.sel; pl0.zoom = sv.zoom; state.plantaAtiva = svAtiva;
     }
+    {
+      const ES = await import('./js/escala.js');
+      const pl0 = state.plantas[0], sv = {imagem:pl0.imagem, pins:pl0.pins, escala:pl0.escala, muros:pl0.muros, sel:pl0.selectedTipo, zoom:pl0.zoom}, svAtiva = state.plantaAtiva;
+      const cvE = document.createElement('canvas'); cvE.width = 400; cvE.height = 400;
+      pl0.imagem = cvE.toDataURL('image/png'); pl0.zoom = 100; pl0.muros = []; pl0.selectedTipo = 'bullet';
+      pl0.escala = {a:{x:0,y:50}, b:{x:100,y:50}, metros:40, metrosLargura:40};
+      pl0.pins = [
+        {id:'e1', tipoId:'bullet', label:'B', qtd:1, x:30, y:50, direcao:90, alcanceM:20, altura:18, abEsq:25, abDir:25},
+        {id:'e2', tipoId:'ptz', label:'P', qtd:1, x:70, y:30, direcao:0}
+      ];
+      state.plantaAtiva = 0; window.switchTab('planta'); await waitImg();
+      const W1 = document.getElementById('plantaImg').clientWidth;
+      const Lcone = ()=>parseFloat(document.getElementById('cone-0').getAttribute('width'));
+      assert('escala: foco do Bullet com 20 m em px reais', near(Lcone(), 2*20*W1/40+4, 1));
+      assert('escala: PTZ com raio fixo de 30 m', near(parseFloat(document.getElementById('cone-1').getAttribute('width')), 2*30*W1/40+4, 1));
+      assert('ponto cego desenhado (path .cego com d)', (document.querySelector('#cone-0 path.cego')?.getAttribute('d')||'').length>5);
+      assert('rótulo altura · alcance ao lado da câmera', (document.getElementById('hlabel-0')?.textContent||'').includes('18 m') && document.getElementById('hlabel-0').textContent.includes('20 m') && !document.getElementById('hlabel-1'));
+      window.zoomPlanta(100); await waitImg(); await frame();
+      const W2 = document.getElementById('plantaImg').clientWidth;
+      assert('escala: foco cresce com o zoom', near(Lcone(), 2*20*W2/40+4, 1) && W2 > W1*1.5);
+      window.liveUpdateAltura(0, 3);
+      assert('altura menor → ponto cego menor no rótulo', document.getElementById('cego-0').textContent.includes(ES.fmtM(ES.cegoDoPin(pl0.pins[0]))));
+      window.liveUpdateAlcanceM(0, 30);
+      assert('liveUpdateAlcanceM grava alcanceM e atualiza o rótulo', pl0.pins[0].alcanceM===30 && document.getElementById('alclabel-0').textContent.includes('30 m'));
+      delete pl0.escala; window.renderContent(); await waitImg();
+      assert('sem escala: sem ponto cego, sem campo de altura, foco no tamanho antigo', !(document.querySelector('#cone-0 path.cego')?.getAttribute('d')) && !document.getElementById('altura-0') && near(Lcone(), 2*55+4, 1));
+      pl0.imagem = sv.imagem; pl0.pins = sv.pins; if(sv.escala) pl0.escala = sv.escala; else delete pl0.escala; pl0.muros = sv.muros; pl0.selectedTipo = sv.sel; pl0.zoom = sv.zoom; state.plantaAtiva = svAtiva;
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',
