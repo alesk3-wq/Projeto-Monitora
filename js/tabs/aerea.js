@@ -1,12 +1,12 @@
 // Vista aérea no editor (aba 02 · Planta): tudo que difere de uma planta quando state.planta.aerea.
-// planta.js delega para cá (como faz com areas.js, muros.js…). O mapa de satélite vem depois
-// (Task 3): por enquanto a vista sem imagem mostra o upload de imagem/PDF.
-import { state, novaAerea } from '../state.js';
+// planta.js delega para cá (como faz com areas.js, muros.js…). Vista sem imagem (ou em "Trocar
+// imagem") mostra o mapa de satélite (Leaflet + Esri) com busca, Capturar e upload próprio.
+import { state, novaAerea, limparPlanta } from '../state.js';
 import { ICONS } from '../constants.js';
-import { typeById, escHtml } from '../utils.js';
+import { typeById, escHtml, showToast } from '../utils.js';
 import { pontosPorTipo, numeroDoPinEm } from '../numeracao.js';
-import { novaRef, refsColocadas, pinOriginal } from '../aerea.js';
-import { renderContent } from '../nav.js';
+import { novaRef, refsColocadas, pinOriginal, TILE_URL, CREDITO_ESRI, MAPA_ZOOM_MAX, CAPTURA_MAX, metrosPorPixel, escalaCaptura, lerCoordenadas, latDoPixelY } from '../aerea.js';
+import { renderContent, resetRolagem } from '../nav.js';
 import { cancelarTraco, tplControlesFoco } from './planta.js';
 
 // Ferramentas de desenho que continuam valendo na vista (além dos itens de cenário)
@@ -46,15 +46,235 @@ export function tplAbasVistas(){
           <button class="planta-tab aerea ${i===state.aereaAtiva?'active':''}" onclick="selectAerea(${i})">🛰 ${escHtml(v.nome||('Vista aérea '+(i+1)))}</button>`).join('');
 }
 
-// Bloco da imagem de fundo da vista (Task 3 troca por mapa quando a vista não tem imagem)
+// ---------- imagem de fundo: mapa de satélite / troca ----------
+let mapa = null;   // instância Leaflet viva (no máx. uma; destruída a cada renderContent)
+let troca = null;  // vista em "Trocar imagem" (mostra o mapa mesmo já tendo imagem)
+let resultadosBusca = [];
+let buscando = false;
+
+// A vista mostra o mapa (em vez do editor) quando não tem imagem ou está trocando a imagem
+export function mostrandoMapa(pl){
+  return !!pl?.aerea && (!pl.imagem || troca===pl);
+}
+export function fimTrocaImagem(){ troca = null; }
+export function trocarImagemAerea(){
+  if(!state.planta?.aerea) return;
+  cancelarTraco();
+  troca = state.planta;
+  resetRolagem();
+  renderContent();
+}
+export function cancelarTrocaImagem(){ troca = null; renderContent(); }
+
+// Vista com imagem: botão "Trocar imagem" (+ crédito quando veio do mapa). Na tela do mapa, nada.
 export function tplVistaImagem(pl){
+  if(mostrandoMapa(pl)) return '';
+  return `
+      <div class="vista-imagem-bar">
+        <button class="btn ghost small" onclick="trocarImagemAerea()">🛰 Trocar imagem</button>
+        <span class="hint" style="margin:0;">${pl.fonte==='mapa' ? escHtml(CREDITO_ESRI)+' · escala definida pela captura' : 'Imagem enviada'}</span>
+      </div>`;
+}
+
+// Tela do mapa: busca, ações (Capturar, Enviar imagem própria, Cancelar na troca) e o mapa.
+// As ações ficam acima do mapa para Capturar estar sempre à vista (o mapa é alto).
+export function tplMapaAereo(pl){
+  const temL = !!window.L;
   return `
       <label>Imagem aérea (imagem ou PDF)</label>
-      <input type="file" accept="image/*,application/pdf,.pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
-      <div class="hint">Print do Google Earth/Maps, foto de drone ou PDF. PDF com mais de uma página: você escolhe qual usar.</div>`;
+      ${temL ? `
+      <div class="mapa-busca">
+        <input type="text" id="mapaBusca" placeholder="Endereço, cidade ou coordenadas (ex.: -22.6029, -48.8031)" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarLocal();}">
+        <button class="btn primary small" id="mapaBuscarBtn" onclick="buscarLocal()">Buscar</button>
+      </div>
+      <div id="mapaResultados" class="mapa-resultados"></div>` : `
+      <div class="mapa-aviso">Mapa de satélite indisponível (sem conexão?). Envie uma imagem própria: print do Google Earth/Maps, foto de drone ou PDF.</div>`}
+      <div class="mapa-acoes">
+        ${temL ? `<button class="btn primary" id="mapaCapturarBtn" onclick="capturarMapa()">📷 Capturar</button>` : ''}
+        <label class="btn ghost mapa-upload">⬆ Enviar imagem própria
+          <input type="file" accept="image/*,application/pdf,.pdf" onchange="handlePlantaUpload(event)" style="display:none;">
+        </label>
+        ${pl.imagem ? `<button class="btn ghost" onclick="cancelarTrocaImagem()">Cancelar</button>` : ''}
+        <span class="hint" style="margin:0;">${temL ? 'Enquadre o local e clique em Capturar: a imagem vira o fundo da vista já com a escala. ' : ''}Imagem própria: print do Google Earth/Maps, foto de drone ou PDF (sem escala — use 📏 Escala).</span>
+      </div>
+      ${temL ? `<div id="mapaAereo"></div>` : ''}`;
 }
-export function tplVistaVazia(){
-  return `<div class="empty-hint">Envie uma imagem aérea do local para posicionar os equipamentos da planta sobre ela.</div>`;
+
+export function destruirMapa(){
+  if(mapa){ try{ mapa.remove(); }catch(e){ /* container já saiu do DOM */ } mapa = null; }
+}
+// Chamado por afterPlantaRender: cria o mapa no #mapaAereo quando a vista mostra o mapa
+export function montarMapa(){
+  destruirMapa();
+  const pl = state.planta;
+  if(!mostrandoMapa(pl)) return;
+  if(!window.L){ showToast('Mapa indisponível (sem conexão?). Envie uma imagem própria.'); return; }
+  const el = document.getElementById('mapaAereo');
+  if(!el) return;
+  const L = window.L;
+  mapa = L.map(el, {zoomSnap:1, maxZoom:MAPA_ZOOM_MAX});
+  L.tileLayer(TILE_URL, {maxZoom:MAPA_ZOOM_MAX, attribution:CREDITO_ESRI, crossOrigin:'anonymous'}).addTo(mapa);
+  const c = pl.mapa || {lat:-15.8, lng:-47.9, zoom:4}; // último enquadramento ou Brasil
+  mapa.setView([c.lat, c.lng], c.zoom);
+  mapa.invalidateSize();
+}
+export const mapaAtual = ()=>mapa;
+
+// Busca: coordenadas coladas saltam direto (sem rede); senão 1 requisição ao Nominatim por clique
+export async function buscarLocal(){
+  const inp = document.getElementById('mapaBusca');
+  if(!inp || !mapa) return;
+  const q = inp.value.trim();
+  if(!q) return;
+  const box = document.getElementById('mapaResultados');
+  const c = lerCoordenadas(q);
+  if(c){ if(box) box.innerHTML = ''; mapa.setView([c.lat, c.lng], 18); return; }
+  if(buscando) return;
+  buscando = true;
+  const btn = document.getElementById('mapaBuscarBtn');
+  if(btn) btn.disabled = true;
+  try{
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=pt-BR&q='+encodeURIComponent(q);
+    const r = await fetch(url, {headers:{Accept:'application/json'}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const lista = await r.json();
+    resultadosBusca = Array.isArray(lista) ? lista.slice(0, 5) : [];
+    const box2 = document.getElementById('mapaResultados');
+    if(!box2 || !mapa) return; // a tela trocou durante a busca
+    if(!resultadosBusca.length){ box2.innerHTML = '<div class="hint" style="margin:0;">Nenhum resultado. Tente outro termo ou cole as coordenadas (lat, long).</div>'; return; }
+    box2.innerHTML = resultadosBusca.map((it,i)=>`<button class="mapa-resultado" onclick="irParaResultado(${i})">${escHtml(it.display_name||'')}</button>`).join('');
+    irParaResultado(0);
+  }catch(e){
+    console.error(e);
+    showToast('Busca indisponível. Cole as coordenadas (lat, long) do Google Maps.');
+  }finally{
+    buscando = false;
+    const b2 = document.getElementById('mapaBuscarBtn');
+    if(b2) b2.disabled = false;
+  }
+}
+export function irParaResultado(i){
+  const it = resultadosBusca[i];
+  if(!it || !mapa) return;
+  document.querySelectorAll('.mapa-resultado').forEach((b,j)=>b.classList.toggle('active', j===i));
+  const bb = (it.boundingbox||[]).map(Number); // [sul, norte, oeste, leste]
+  if(bb.length===4 && bb.every(Number.isFinite)) mapa.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], {maxZoom:18});
+  else mapa.setView([+it.lat, +it.lon], 17);
+}
+
+// Carrega um tile com CORS (sem isso o canvas fica "sujo" e toDataURL falha)
+function carregarTile(url){
+  return new Promise((res, rej)=>{
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    const t = setTimeout(()=>rej(new Error('tempo esgotado: '+url)), 20000);
+    im.onload = ()=>{ clearTimeout(t); res(im); };
+    im.onerror = ()=>{ clearTimeout(t); rej(new Error('falha no tile: '+url)); };
+    im.src = url;
+  });
+}
+
+// Tile "Map data not yet available" da Esri: quase todo cinza #CCCCCC (com texto branco).
+// Amostra 32×32; >85% dos pixels nesse cinza = sem dados nesse zoom. (Lança se o tile sujou o canvas.)
+const amostra = document.createElement('canvas');
+amostra.width = amostra.height = 32;
+function tileSemDados(img){
+  const g = amostra.getContext('2d', {willReadFrequently:true});
+  g.clearRect(0, 0, 32, 32);
+  g.drawImage(img, 0, 0, 32, 32);
+  const d = g.getImageData(0, 0, 32, 32).data;
+  let n = 0;
+  for(let i=0; i<d.length; i+=4){
+    if(Math.abs(d[i]-204)<=8 && Math.abs(d[i+1]-204)<=8 && Math.abs(d[i+2]-204)<=8) n++;
+  }
+  return n > 0.85*1024;
+}
+
+// Monta a captura: bounds em pixels de mundo no zoom z ({x0,y0,x1,y1}); desenha os tiles de z
+// num canvas (reduzido se o lado passar de CAPTURA_MAX). carregar(url) → Promise<imagem/canvas>
+// é injetável (testes sem rede). Algum tile falhou → null. Canvas sujo (CORS) → lança.
+// semDados = quantos tiles vieram como "Map data not yet available".
+export async function montarCaptura(bounds, z, carregar = carregarTile){
+  const x0 = Math.round(bounds.x0), y0 = Math.round(bounds.y0);
+  const w = Math.round(bounds.x1 - bounds.x0), h = Math.round(bounds.y1 - bounds.y0);
+  if(!(w>0 && h>0)) return null;
+  const lado = Math.max(w, h);
+  const f = lado > CAPTURA_MAX ? CAPTURA_MAX/lado : 1;
+  const largura = Math.max(1, Math.round(w*f)), altura = Math.max(1, Math.round(h*f));
+  const n = Math.pow(2, z);
+  const tiles = [];
+  for(let ty=Math.floor(y0/256); ty<=Math.floor((y0+h-1)/256); ty++){
+    if(ty<0 || ty>=n) continue;
+    for(let tx=Math.floor(x0/256); tx<=Math.floor((x0+w-1)/256); tx++){
+      const xw = ((tx % n) + n) % n; // dá a volta no antimeridiano
+      tiles.push({tx, ty, url: TILE_URL.replace('{z}', z).replace('{y}', ty).replace('{x}', xw)});
+    }
+  }
+  if(!tiles.length) return null;
+  const res = await Promise.allSettled(tiles.map(t=>carregar(t.url)));
+  if(res.some(r=>r.status!=='fulfilled')) return null;
+  const semDados = res.filter(r=>tileSemDados(r.value)).length;
+  const cv = document.createElement('canvas');
+  cv.width = largura; cv.height = altura;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, largura, altura);
+  g.scale(largura/w, altura/h);
+  res.forEach((r, i)=>{
+    const t = tiles[i];
+    g.drawImage(r.value, t.tx*256 - x0, t.ty*256 - y0, 256, 256);
+  });
+  const dataURL = cv.toDataURL('image/jpeg', 0.9); // lança SecurityError se algum tile sujou o canvas
+  const mpp = metrosPorPixel(latDoPixelY(y0 + h/2, z), z) * (w/largura);
+  return { dataURL, largura, altura, mpp, semDados };
+}
+
+// Captura em zc (mais nítido); se algum tile não tem imagem nesse zoom (comum em z19 fora das
+// capitais), refaz no zoom do mapa z. bounds em pixels de mundo no zoom zc. → resultado + {zoom}
+export async function capturaComZoom(bounds, z, zc, carregar = carregarTile){
+  let r = await montarCaptura(bounds, zc, carregar);
+  if(r && r.semDados>0 && zc>z){
+    const k = Math.pow(2, zc - z);
+    const r2 = await montarCaptura({x0: bounds.x0/k, y0: bounds.y0/k, x1: bounds.x1/k, y1: bounds.y1/k}, z, carregar);
+    if(r2) return {...r2, zoom: z};
+  }
+  return r ? {...r, zoom: zc} : null;
+}
+
+// Capturar: tiles um nível acima do zoom do mapa (mais nítido), cobrindo o enquadramento visível
+export async function capturarMapa(){
+  const pl = state.planta;
+  if(!mapa || !pl?.aerea) return;
+  if(temConteudoVista(pl) && !confirm('Trocar a imagem apaga o que está posicionado nesta vista (muros ficam). Continuar?')) return;
+  const z = Math.round(mapa.getZoom());
+  const zc = Math.min(z+1, MAPA_ZOOM_MAX);
+  const k = Math.pow(2, zc - z);
+  const pb = mapa.getPixelBounds();
+  const centro = mapa.getCenter();
+  const bounds = {x0: pb.min.x*k, y0: pb.min.y*k, x1: pb.max.x*k, y1: pb.max.y*k};
+  const restaura = ()=>{ const b = document.getElementById('mapaCapturarBtn'); if(b){ b.disabled = false; b.textContent = '📷 Capturar'; } };
+  const btn = document.getElementById('mapaCapturarBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Capturando…'; }
+  let r;
+  try{
+    r = await capturaComZoom(bounds, z, zc);
+  }catch(e){
+    console.error(e);
+    showToast('O servidor de satélite bloqueou a captura. Envie uma imagem própria.');
+    restaura(); return;
+  }
+  if(!r){
+    showToast('Não foi possível carregar as imagens de satélite. Verifique a conexão e tente de novo.');
+    restaura(); return;
+  }
+  limparPlanta(pl);
+  pl.imagem = r.dataURL;
+  pl.escala = escalaCaptura(r.largura, r.mpp);
+  pl.fonte = 'mapa';
+  pl.mapa = {lat: centro.lat, lng: centro.lng, zoom: z};
+  troca = null;
+  resetRolagem();
+  renderContent();
+  showToast(r.semDados ? 'Imagem capturada com escala, mas parte da área não tem foto de satélite nesse zoom. Afaste o zoom e capture de novo.' : 'Imagem capturada com escala.');
 }
 
 // ---------- equipamentos da planta (referências) ----------

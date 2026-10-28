@@ -1,6 +1,7 @@
 import { state, limparPlanta } from '../state.js';
 import { showToast } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
+import { fimTrocaImagem } from './aerea.js';
 
 const TARGET_MAX_DIM = 2000; // px, lado maior da planta final
 const THUMB_MAX_DIM  = 220;  // px, lado maior das miniaturas do seletor
@@ -36,6 +37,7 @@ async function applyPage(pdfDoc, pageNum){
     const url = await renderPageToDataURL(page, TARGET_MAX_DIM);
     state.planta.imagem = url;
     limparPlanta(state.planta);
+    if(state.planta.aerea){ state.planta.fonte = 'upload'; fimTrocaImagem(); }
     resetRolagem();
     renderContent();
     showToast('Planta importada do PDF.');

@@ -913,6 +913,81 @@ try{
     state.plantas = sv.pl; state.plantaAtiva = sv.pa; state.aereas = sv.ae; state.aereaAtiva = sv.aa;
     window.renderContent();
   }
+
+  // ===== Vista aérea: mapa e captura (sem rede: tiles falsos) =====
+  {
+    const AE = await import('./js/aerea.js');
+    const TA = await import('./js/tabs/aerea.js');
+    const STy = await import('./js/state.js');
+    const sv = {pl:state.plantas, pa:state.plantaAtiva, ae:state.aereas, aa:state.aereaAtiva};
+    const cores = ['#c00','#0c0','#00c','#cc0'];
+    let pedidos = [];
+    const falso = (url)=>{ pedidos.push(url); const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d'); g.fillStyle = cores[pedidos.length%4]; g.fillRect(0,0,256,256); return Promise.resolve(c); };
+    const z = 18, cx = 97000*256, cy = 148000*256; // ~ interior de SP em z18
+    const r1 = await TA.montarCaptura({x0:cx, y0:cy, x1:cx+600, y1:cy+400}, z, falso);
+    const lat1 = AE.latDoPixelY(cy+200, z);
+    assert('captura: 600×400 em z18', !!r1 && r1.largura===600 && r1.altura===400);
+    assert('captura: dataURL JPEG', !!r1 && r1.dataURL.startsWith('data:image/jpeg'));
+    assert('captura: mpp = metrosPorPixel(lat do centro, z)', !!r1 && Math.abs(r1.mpp - AE.metrosPorPixel(lat1, z)) < 1e-9);
+    assert('captura: pede só os tiles que cobrem (4×3 ou menos)', pedidos.length>=6 && pedidos.length<=12 && pedidos.every(u=>u.includes('/tile/18/')));
+    assert('captura: URL no formato {z}/{y}/{x}', pedidos.includes(`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/18/148000/97000`));
+    const img1 = await new Promise(res=>{ const im = new Image(); im.onload = ()=>res(im); im.src = r1.dataURL; });
+    assert('captura: imagem decodifica 600×400', img1.naturalWidth===600 && img1.naturalHeight===400);
+    pedidos = [];
+    const r2 = await TA.montarCaptura({x0:cx, y0:cy, x1:cx+5000, y1:cy+3000}, z, falso);
+    const lat2 = AE.latDoPixelY(cy+1500, z);
+    assert('captura grande: lado ≤ 4096 mantendo proporção', !!r2 && r2.largura===4096 && Math.abs(r2.altura - Math.round(3000*4096/5000))<=1);
+    assert('captura grande: mpp aumenta na mesma razão', !!r2 && Math.abs(r2.mpp - AE.metrosPorPixel(lat2, z)*5000/4096) < 1e-9);
+    const rFalha = await TA.montarCaptura({x0:cx, y0:cy, x1:cx+600, y1:cy+400}, z, ()=>Promise.reject(new Error('rede')));
+    assert('captura: todos os tiles falhando → null', rFalha===null);
+    let nF = 0;
+    const rParcial = await TA.montarCaptura({x0:cx, y0:cy, x1:cx+600, y1:cy+400}, z, (u)=>(++nF===2 ? Promise.reject(new Error('rede')) : falso(u)));
+    assert('captura: um tile falhando → null (nada muda)', rParcial===null);
+    assert('latDoPixelY: equador no meio do mundo', Math.abs(AE.latDoPixelY(128*Math.pow(2,5), 5)) < 1e-9);
+    // tile "Map data not yet available" da Esri (cinza #CCC com texto) é detectado
+    const cinza = (url)=>{ pedidos.push(url); const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#CCCCCC'; g.fillRect(0,0,256,256); g.fillStyle = '#fff'; g.font = 'bold 14px sans-serif'; g.fillText('Map data not', 60, 120); g.fillText('yet available', 60, 140); return Promise.resolve(c); };
+    assert('captura: tiles coloridos → semDados 0', r1.semDados===0);
+    const rC = await TA.montarCaptura({x0:cx, y0:cy, x1:cx+600, y1:cy+400}, z, cinza);
+    assert('captura: tiles sem dados (cinza Esri) contados', !!rC && rC.semDados===6);
+    // capturaComZoom: tenta zc; se vier tile sem dados, refaz no zoom do mapa (bounds /2)
+    pedidos = [];
+    const porZoom = (u)=>u.includes('/tile/19/') ? cinza(u) : falso(u);
+    const rZ = await TA.capturaComZoom({x0:cx*2, y0:cy*2, x1:(cx+600)*2, y1:(cy+400)*2}, 18, 19, porZoom);
+    assert('capturaComZoom: z19 sem dados → refaz em z18', !!rZ && rZ.zoom===18 && rZ.largura===600 && rZ.semDados===0 && Math.abs(rZ.mpp - AE.metrosPorPixel(lat1, 18))<1e-9);
+    const rZ2 = await TA.capturaComZoom({x0:cx*2, y0:cy*2, x1:(cx+600)*2, y1:(cy+400)*2}, 18, 19, falso);
+    assert('capturaComZoom: z19 com dados fica em z19', !!rZ2 && rZ2.zoom===19 && rZ2.largura===1200);
+    const rZ3 = await TA.capturaComZoom({x0:cx, y0:cy, x1:cx+600, y1:cy+400}, 19, 19, cinza);
+    assert('capturaComZoom: sem zoom menor, devolve com semDados', !!rZ3 && rZ3.zoom===19 && rZ3.semDados>0);
+
+    // template sem Leaflet (harness não carrega window.L)
+    const Lsv = window.L; delete window.L;
+    const p1 = STy.novaPlanta('Térreo');
+    state.plantas = [p1]; state.plantaAtiva = 0; state.aereas = []; state.aereaAtiva = null;
+    window.switchTab('planta');
+    window.addAerea();
+    const vs = state.aereas[0];
+    const txt = ()=>document.getElementById('content').textContent;
+    assert('mapa: sem Leaflet mostra aviso', !!document.querySelector('.mapa-aviso') && !document.getElementById('mapaAereo'));
+    assert('mapa: sem Leaflet oferece "Enviar imagem própria"', txt().includes('Enviar imagem própria') && !!document.querySelector('#content input[type="file"]'));
+    assert('mapa: sem Leaflet não mostra Capturar', ![...document.querySelectorAll('#content button')].some(b=>b.textContent.includes('Capturar')));
+    assert('mapa: vista sem imagem não mostra editor', !document.getElementById('plantaScroll'));
+    assert('mapa: sem "Trocar imagem" nem Cancelar quando não há imagem', !txt().includes('Trocar imagem') && ![...document.querySelectorAll('#content button')].some(b=>b.textContent.trim()==='Cancelar'));
+    const cvV = document.createElement('canvas'); cvV.width = 300; cvV.height = 200;
+    vs.imagem = cvV.toDataURL('image/png'); window.renderContent(); await waitImg();
+    assert('mapa: com imagem mostra "Trocar imagem" e o editor', [...document.querySelectorAll('#content button')].some(b=>b.textContent.includes('Trocar imagem')) && !!document.getElementById('plantaScroll'));
+    window.trocarImagemAerea();
+    assert('mapa: Trocar imagem volta à tela do mapa com Cancelar', !document.getElementById('plantaScroll') && [...document.querySelectorAll('#content button')].some(b=>b.textContent.trim()==='Cancelar') && txt().includes('Enviar imagem própria'));
+    window.cancelarTrocaImagem(); await waitImg();
+    assert('mapa: Cancelar volta ao editor sem mexer na imagem', !!document.getElementById('plantaScroll') && !!vs.imagem);
+    // upload durante a troca encerra a troca e marca fonte 'upload'
+    window.trocarImagemAerea();
+    const blobV = await (await fetch(vs.imagem)).blob();
+    await window.handlePlantaUpload({target:{files:[new File([blobV], 'v.png', {type:'image/png'})], value:'x'}}); await waitImg();
+    assert('mapa: upload na troca volta ao editor, fonte upload', !!document.getElementById('plantaScroll') && vs.fonte==='upload');
+    if(Lsv) window.L = Lsv;
+    state.plantas = sv.pl; state.plantaAtiva = sv.pa; state.aereas = sv.ae; state.aereaAtiva = sv.aa;
+    window.renderContent();
+  }
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }

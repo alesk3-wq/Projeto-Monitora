@@ -171,3 +171,16 @@
   .vista-add{border:1px dashed #D6DDE7;border-bottom:none;background:#fff;color:var(--text-mid);border-radius:8px 8px 0 0;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
   .type-btn:disabled{opacity:.45;cursor:not-allowed;}
   .equip-atual{cursor:pointer;}
+  /* vista aérea: mapa de satélite */
+  .mapa-busca{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+  .mapa-busca input{flex:1;min-width:200px;margin:0;}
+  .mapa-resultados{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+  .mapa-resultados:empty{display:none;}
+  .mapa-resultado{text-align:left;background:#FAFBFD;border:1px solid #E3E8EF;border-radius:8px;padding:7px 10px;font-size:12.5px;cursor:pointer;color:var(--text-dark);}
+  .mapa-resultado.active{border-color:var(--ui-accent);background:#EEFBF6;font-weight:600;}
+  #mapaAereo{height:520px;border:2px solid #C7D0DD;border-radius:10px;overflow:hidden;background:#DDE3EA;}
+  @media (min-width: 1025px){ #mapaAereo{height:max(520px, calc(100vh - 300px));} }
+  .mapa-acoes{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0;}
+  .mapa-upload{cursor:pointer;margin:0;display:inline-flex;text-transform:none;letter-spacing:normal;font-size:13.5px;color:var(--text-dark);}
+  .mapa-aviso{background:#FFF8E1;border:1px solid #F0D58A;color:#6B5200;border-radius:10px;padding:16px 18px;font-size:13.5px;margin-bottom:4px;}
+  .vista-imagem-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}

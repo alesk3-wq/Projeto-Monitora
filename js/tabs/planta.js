@@ -1,7 +1,7 @@
 import { state, novaPlanta, limparPlanta, temVistaAtiva } from '../state.js';
 import { numeroDoPinEm } from '../numeracao.js';
 import { limparRefsOrfas } from '../aerea.js';
-import { tplAbasVistas, tplVistaImagem, tplVistaVazia, tplEquipPlanta, tplRefRow, criarRefNoClique, temConteudoVista, FERRAMENTAS_VISTA } from './aerea.js';
+import { tplAbasVistas, tplVistaImagem, tplMapaAereo, mostrandoMapa, montarMapa, fimTrocaImagem, tplEquipPlanta, tplRefRow, criarRefNoClique, temConteudoVista, FERRAMENTAS_VISTA } from './aerea.js';
 import { EQUIP_TYPES, ICONS, CATEGORIAS_INSERIR } from '../constants.js';
 import { typeById, fileToDataURL, showToast, novoId, alcanceDe, ALCANCE_MIN, ALCANCE_MAX, aberturaDe, fixarAbertura, setorPath, pontoNaDirecao, ABERTURA_MIN, ABERTURA_MAX } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
@@ -17,6 +17,7 @@ export function tplPlanta(){
   limparRefsOrfas(); // referências cujo original foi excluído somem das vistas aéreas
   const pl = state.planta;
   const vista = !!pl.aerea;
+  const naTelaMapa = mostrandoMapa(pl); // vista sem imagem ou trocando a imagem: mapa em vez do editor
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
     <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco, e os pontos nas bordas do arco abrem ou fecham cada lado do foco).</p>
@@ -38,6 +39,7 @@ export function tplPlanta(){
       <label>Planta baixa (imagem ou PDF)</label>
       <input type="file" accept="image/*,application/pdf,.pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
       <div class="hint">PDF com mais de uma página: você escolhe qual usar.</div>`}
+      ${naTelaMapa ? tplMapaAereo(pl) : `
       <div class="toolbar-types">
         ${tplMenuInserir(pl)}
         ${vista ? tplEquipPlanta(pl) : ''}
@@ -77,8 +79,8 @@ export function tplPlanta(){
           ? `<div id="plantaWrap" style="position:relative;width:${pl.zoom||100}%;">
                <img id="plantaImg" src="${pl.imagem}">
              </div>`
-          : vista ? tplVistaVazia() : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
-      </div>
+          : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
+      </div>`}
       <div class="pinlist">
         ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0 && !(pl.muros||[]).length) ? `<div class="hint">${vista ? 'Nada posicionado nesta vista ainda.' : 'Nenhum equipamento posicionado ainda.'}</div>` : pl.pins.map((p,pi)=> p.ref ? tplRefRow(p, pi) : `
           <div class="pinrow">
@@ -117,7 +119,7 @@ let suppressNextClick = false;
 let pinch = null;
 let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem traçado
 
-export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); cancelarEscala(); }
+export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); cancelarEscala(); fimTrocaImagem(); }
 export function selectPlanta(i){
   if(i===state.plantaAtiva && !temVistaAtiva()) return;
   cancelarTraco();
@@ -279,6 +281,7 @@ function renderCercas(wrap){
 }
 
 export function afterPlantaRender(){
+  montarMapa(); // vista aérea na tela do mapa (destrói o mapa anterior; sem mapa, não faz nada)
   const img = document.getElementById('plantaImg');
   const wrap = document.getElementById('plantaWrap');
   if(img){
@@ -739,6 +742,7 @@ export async function handlePlantaUpload(e){
   if(isPdfFile(f)){ await handlePlantaPdfUpload(f); e.target.value=''; return; }
   state.planta.imagem = await fileToDataURL(f);
   limparPlanta(state.planta);
+  if(state.planta.aerea){ state.planta.fonte = 'upload'; fimTrocaImagem(); }
   resetRolagem();
   renderContent();
 }

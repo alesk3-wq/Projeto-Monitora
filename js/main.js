@@ -5,7 +5,7 @@ import { addGroup, removeGroup, addItem, removeItem, importFromPlanta, setDescGe
 import { escalaConfirmar, escalaCancelar, escalaRemover, escalaRefazer } from './tabs/escalaTool.js';
 import { muroDesfazer, muroConcluir, muroCancelar, removeMuro } from './tabs/muros.js';
 import { toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAlcanceM, liveUpdateAltura, syncAlturaCampo, liveUpdateAbertura, removePin, selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca, selectPlanta, addPlanta, removePlanta } from './tabs/planta.js';
-import { selectAerea, addAerea, removeAerea, toggleMenuEquip, selectRef, criarRefNoClique, removeRef } from './tabs/aerea.js';
+import { selectAerea, addAerea, removeAerea, toggleMenuEquip, selectRef, criarRefNoClique, removeRef, trocarImagemAerea, cancelarTrocaImagem, buscarLocal, irParaResultado, capturarMapa } from './tabs/aerea.js';
 import { selectAreaCat, setAreaCat, removeArea } from './tabs/areas.js';
 import { setEtiquetaTexto, removeEtiqueta } from './tabs/etiquetas.js';
 import { handleEquipPhoto, setCropFrac } from './tabs/equipamentos.js';
@@ -21,7 +21,7 @@ Object.assign(window, {
   toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAlcanceM, liveUpdateAltura, syncAlturaCampo, liveUpdateAbertura, removePin,
   selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca,
   selectPlanta, addPlanta, removePlanta,
-  selectAerea, addAerea, removeAerea, toggleMenuEquip, selectRef, criarRefNoClique, removeRef,
+  selectAerea, addAerea, removeAerea, toggleMenuEquip, selectRef, criarRefNoClique, removeRef, trocarImagemAerea, cancelarTrocaImagem, buscarLocal, irParaResultado, capturarMapa,
   selectAreaCat, setAreaCat, removeArea,
   setEtiquetaTexto, removeEtiqueta,
   handleEquipPhoto, setCropFrac,

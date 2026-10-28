@@ -71,6 +71,12 @@ export function metrosPorPixel(lat, z){
   return 156543.03392 * Math.cos(lat*Math.PI/180) / Math.pow(2, z);
 }
 
+// Latitude de uma coordenada y em pixels de mundo Web Mercator (tiles de 256px) no zoom z.
+export function latDoPixelY(y, z){
+  const n = Math.PI * (1 - 2*y/(256*Math.pow(2, z)));
+  return Math.atan(Math.sinh(n)) * 180/Math.PI;
+}
+
 // Escala no formato das plantas: linha horizontal no meio, de 10% a 90% da largura.
 export function escalaCaptura(larguraPx, mpp){
   return { a:{x:10, y:50}, b:{x:90, y:50}, metros: 0.8*larguraPx*mpp, metrosLargura: larguraPx*mpp };

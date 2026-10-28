@@ -4,6 +4,7 @@ import { tplProjeto } from './tabs/projeto.js';
 import { tplObjetivo } from './tabs/objetivo.js';
 import { tplEstrutura } from './tabs/estrutura.js';
 import { tplPlanta, afterPlantaRender, cancelarTraco } from './tabs/planta.js';
+import { destruirMapa } from './tabs/aerea.js';
 import { tplEquipamentos, afterEquipamentosRender } from './tabs/equipamentos.js';
 import { tplPremissas } from './tabs/premissas.js';
 import { tplGerar } from './tabs/gerar.js';
@@ -48,6 +49,7 @@ const chavePlanta = ()=>temVistaAtiva() ? 'a'+state.aereaAtiva : state.plantaAti
 
 export function renderContent(){
   const c = document.getElementById('content');
+  destruirMapa(); // mapa Leaflet anterior (se houver) sai antes de o container ser trocado
   // Rolagem só é preservada ao re-renderizar a MESMA planta da aba Planta
   let keep = null;
   const pular = pularRolagem; pularRolagem = false;
