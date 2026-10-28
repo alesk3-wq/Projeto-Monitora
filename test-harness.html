@@ -805,6 +805,101 @@ try{
     const n3 = Px.normalizarProjeto({plantas:[{pins:[]}], aereas:[{pins:[{x:1,y:1,tipoId:'poste'}]}], aereaAtiva:0});
     assert('aérea: normalizar mantém aereaAtiva válida e cria ids', n3.aereaAtiva===0 && !!n3.aereas[0].pins[0].id);
   }
+  // ===== Vista aérea: editor (mini-abas, toolbar, referências) =====
+  {
+    const STx = await import('./js/state.js');
+    const Nx = await import('./js/numeracao.js');
+    const PDx = await import('./js/pdf.js');
+    const sv = {pl:state.plantas, pa:state.plantaAtiva, ae:state.aereas, aa:state.aereaAtiva};
+    const cf = window.confirm;
+    const cvA = document.createElement('canvas'); cvA.width = 400; cvA.height = 400;
+    const cvT = document.createElement('canvas'); cvT.width = 400; cvT.height = 4000;
+    const imgA = cvA.toDataURL('image/png'), imgT = cvT.toDataURL('image/png');
+    const p1 = STx.novaPlanta('Térreo');
+    p1.pins.push({id:'o0', tipoId:'bullet', label:'Outra', qtd:1, x:1, y:1, direcao:0},
+                 {id:'o1', tipoId:'bullet', label:'Portaria', qtd:1, x:5, y:5, direcao:90},
+                 {id:'pt1', tipoId:'poste', label:'Poste', qtd:1, x:9, y:9});
+    const p2 = STx.novaPlanta('Galpão');
+    p2.pins.push({id:'f1', tipoId:'fechadura', label:'Fech', qtd:1, x:20, y:20});
+    state.plantas = [p1, p2]; state.plantaAtiva = 0; state.aereas = []; state.aereaAtiva = null;
+    const contadores = ()=>JSON.stringify([Nx.pontosPorTipo().map(g=>[g.tipo.id, g.pontos.map(p=>p.numero)]), PDx.legendaResumo(), v.validarProposta()]);
+    const antes = contadores();
+    window.switchTab('planta');
+    assert('vista-ed: botão "+ Vista aérea" presente', [...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='+ Vista aérea'));
+    window.addAerea();
+    const abaV = [...document.querySelectorAll('.planta-tab')].find(b=>b.textContent.includes('🛰'));
+    assert('vista-ed: addAerea cria aba 🛰 Vista aérea 1 ativa', state.aereas.length===1 && state.aereaAtiva===0 && !!abaV && abaV.textContent.includes('Vista aérea 1') && abaV.classList.contains('active'));
+    assert('vista-ed: nenhuma planta ativa com vista selecionada', ![...document.querySelectorAll('.planta-tab.active')].some(b=>b.textContent.includes('Térreo')));
+    assert('vista-ed: rótulos da vista (nome, upload, excluir)', document.getElementById('content').textContent.includes('Nome da vista') && document.getElementById('content').textContent.includes('Imagem aérea (imagem ou PDF)') && [...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Excluir vista'));
+    window.selectPlanta(0);
+    assert('vista-ed: selectPlanta zera aereaAtiva', state.aereaAtiva===null && state.planta===p1);
+    window.selectAerea(0);
+    assert('vista-ed: selectAerea volta para a vista', state.aereaAtiva===0 && state.planta===state.aereas[0]);
+    const vs = state.aereas[0];
+    vs.imagem = imgA; window.renderContent(); await waitImg();
+    const idsMenu = [...document.querySelectorAll('#menuInserir button[onclick^="selectTipo"]')].map(b=>b.getAttribute('onclick').match(/'(.+)'/)[1]);
+    const U4 = await import('./js/utils.js');
+    assert('vista-ed: Inserir só com cenário + muro', idsMenu.length>0 && idsMenu.every(id=>U4.typeById(id).cenario) && idsMenu.includes('muro') && idsMenu.includes('portao') && !idsMenu.includes('bullet') && !idsMenu.includes('cerca') && !idsMenu.includes('outro'));
+    const refsMenu = ()=>[...document.querySelectorAll('#menuEquip button[data-ref]')];
+    assert('vista-ed: painel Equipamentos da planta lista os equipamentos', refsMenu().map(b=>b.dataset.ref).join()==='o0,o1,f1' && refsMenu().every(b=>!b.disabled));
+    assert('vista-ed: item do painel "Tipo N · Planta"', refsMenu()[1].textContent.includes('Câmera Bullet 2 · Térreo') && refsMenu()[2].textContent.includes('Fechadura Eletrônica 1 · Galpão'));
+    window.selectRef('o1');
+    assert('vista-ed: selectRef arma ref sem tipo ativo no Inserir', vs.selectedTipo==='ref:o1' && !document.querySelector('#menuInserir .type-btn.active') && !document.querySelector('.inserir-atual'));
+    window.criarRefNoClique(30, 40); await waitImg();
+    assert('vista-ed: criarRefNoClique cria ref e desarma', vs.pins.length===1 && vs.pins[0].ref==='o1' && vs.pins[0].x===30 && vs.pins[0].y===40 && vs.selectedTipo==='nenhum');
+    assert('vista-ed: badge e lista com o número do original', document.querySelector('#pinicon-0 span')?.textContent==='2' && document.querySelector('.pinlist .pinrow b')?.textContent==='2');
+    assert('vista-ed: original já colocado fica desabilitado', refsMenu().find(b=>b.dataset.ref==='o1')?.disabled===true && refsMenu().find(b=>b.dataset.ref==='o0')?.disabled===false);
+    const row = document.querySelector('.pinlist .pinrow');
+    assert('vista-ed: linha da ref sem select de tipo nem qtd/rótulo editáveis', !row.querySelector('select') && !row.querySelector('input[type="text"]') && !row.querySelector('input[type="number"]:not([id^="altura-"])') && !!row.querySelector('#dirslider-0') && row.textContent.includes('Portaria'));
+    assert('vista-ed: sem escala, sem Altura', !document.getElementById('altura-0'));
+    vs.escala = {a:{x:10,y:50}, b:{x:90,y:50}, metros:80, metrosLargura:100}; window.renderContent(); await waitImg();
+    assert('vista-ed: com escala, campo Altura na linha da ref', !!document.getElementById('altura-0'));
+    window.liveUpdateAltura(0, '7');
+    assert('vista-ed: altura da ref grava no original', p1.pins[1].altura===7);
+    delete p1.pins[1].altura; delete vs.escala; window.renderContent(); await waitImg();
+    // clique com 'nenhum' não cria nada; com cenário cria pin normal
+    const clicar = ()=>{ const im = document.getElementById('plantaImg'), r = im.getBoundingClientRect(); im.onclick({clientX:r.left+r.width/2, clientY:r.top+r.height/2}); };
+    clicar();
+    assert('vista-ed: clique com nenhum não cria pin', vs.pins.length===1);
+    window.selectTipo('poste'); clicar();
+    assert('vista-ed: cenário entra como pin normal da vista', vs.pins.length===2 && !vs.pins[1].ref && vs.pins[1].tipoId==='poste');
+    vs.selectedTipo = 'bullet'; clicar();
+    assert('vista-ed: tipo de equipamento na vista é ignorado', vs.pins.length===2);
+    window.selectRef('o0'); await waitImg(); clicar();
+    assert('vista-ed: clique com ref armada cria a ref', vs.pins.length===3 && vs.pins[2].ref==='o0' && vs.selectedTipo==='nenhum');
+    assert('vista-ed: contadores idênticos', contadores()===antes);
+    window.removeRef(2);
+    assert('vista-ed: removeRef remove só da vista', vs.pins.length===2 && p1.pins.length===3);
+    // nome da vista
+    const inpNome = [...document.querySelectorAll('#content input[type="text"]')][0];
+    inpNome.value = 'Pátio'; inpNome.dispatchEvent(new Event('input'));
+    assert('vista-ed: input de nome grava na vista', vs.nome==='Pátio' && p1.nome==='Térreo');
+    // upload numa vista com conteúdo pede confirmação
+    let perguntou = '';
+    window.confirm = (m)=>{ perguntou = m; return false; };
+    const blob = await (await fetch(imgT)).blob();
+    await window.handlePlantaUpload({target:{files:[new File([blob], 'x.png', {type:'image/png'})], value:'x'}});
+    assert('vista-ed: upload pede confirm e respeita cancelar', perguntou.includes('Trocar a imagem apaga') && vs.imagem===imgA && vs.pins.length===2);
+    window.confirm = cf;
+    // rolagem: planta → vista não restaura scroll (chave distinta)
+    p1.imagem = imgT; vs.imagem = imgT;
+    window.selectPlanta(0); await waitImg();
+    const sc0 = document.getElementById('plantaScroll'); sc0.scrollTop = 300;
+    window.selectAerea(0); await waitImg();
+    assert('vista-ed: trocar planta→vista não restaura rolagem', document.getElementById('plantaScroll').scrollTop===0);
+    // ref órfã some no render
+    window.selectPlanta(0);
+    p1.pins.splice(1, 1); window.selectAerea(0);
+    assert('vista-ed: ref órfã removida no render', !vs.pins.some(p=>p.ref==='o1'));
+    // excluir vista
+    let pergExc = false;
+    window.confirm = ()=>{ pergExc = true; return true; };
+    window.removeAerea(0);
+    window.confirm = cf;
+    assert('vista-ed: removeAerea com confirm, volta para a planta', pergExc && state.aereas.length===0 && state.aereaAtiva===null && state.planta===p1);
+    state.plantas = sv.pl; state.plantaAtiva = sv.pa; state.aereas = sv.ae; state.aereaAtiva = sv.aa;
+    window.renderContent();
+  }
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }

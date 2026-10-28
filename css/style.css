@@ -168,3 +168,6 @@
   .planta-tab{border:1px solid #D6DDE7;border-bottom:none;background:#F4F6F9;color:var(--text-mid);border-radius:8px 8px 0 0;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
   .planta-tab.active{background:var(--text-dark);color:#fff;border-color:var(--text-dark);}
   .planta-tab.add{border-style:dashed;background:#fff;}
+  .vista-add{border:1px dashed #D6DDE7;border-bottom:none;background:#fff;color:var(--text-mid);border-radius:8px 8px 0 0;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+  .type-btn:disabled{opacity:.45;cursor:not-allowed;}
+  .equip-atual{cursor:pointer;}

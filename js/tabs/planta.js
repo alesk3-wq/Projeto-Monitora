@@ -1,5 +1,7 @@
 import { state, novaPlanta, limparPlanta } from '../state.js';
-import { numeroDoPin } from '../numeracao.js';
+import { numeroDoPinEm } from '../numeracao.js';
+import { limparRefsOrfas } from '../aerea.js';
+import { tplAbasVistas, tplVistaImagem, tplVistaVazia, tplEquipPlanta, tplRefRow, criarRefNoClique, temConteudoVista, FERRAMENTAS_VISTA } from './aerea.js';
 import { EQUIP_TYPES, ICONS, CATEGORIAS_INSERIR } from '../constants.js';
 import { typeById, fileToDataURL, showToast, novoId, alcanceDe, ALCANCE_MIN, ALCANCE_MAX, aberturaDe, fixarAbertura, setorPath, pontoNaDirecao, ABERTURA_MIN, ABERTURA_MAX } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
@@ -12,26 +14,33 @@ import { pxPorMetro, temEscala, alcanceMDe, alturaDe, cegoDoPin, fmtM, ALCANCE_M
 import { segmentosMuros, poligonoVisao, poligonoPath, geomNoMuro, encaixarNoMuro, ABERTURAS_MURO } from '../visao.js';
 
 export function tplPlanta(){
+  limparRefsOrfas(); // referências cujo original foi excluído somem das vistas aéreas
   const pl = state.planta;
+  const vista = !!pl.aerea;
   return `
     <h1 class="pagetitle">02 · Planta / Mapeamento</h1>
     <p class="pagesub">Envie a planta baixa, escolha o tipo de equipamento e clique para posicionar. Depois é só arrastar o ícone para reposicionar, e (para câmeras) arrastar o ponto branco ao redor dele para girar a direção de visualização (em Bullet e Dome, afastar ou aproximar o ponto do ícone aumenta ou encurta o alcance do foco, e os pontos nas bordas do arco abrem ou fecham cada lado do foco).</p>
     <div class="card">
       <div class="planta-tabs">
         ${state.plantas.map((pt,i)=>`
-          <button class="planta-tab ${i===state.plantaAtiva?'active':''}" onclick="selectPlanta(${i})">${pt.nome||('Planta '+(i+1))}</button>`).join('')}
+          <button class="planta-tab ${i===state.plantaAtiva && state.aereaAtiva===null?'active':''}" onclick="selectPlanta(${i})">${pt.nome||('Planta '+(i+1))}</button>`).join('')}
+        ${tplAbasVistas()}
         <button class="planta-tab add" onclick="addPlanta()">+ Nova planta</button>
+        <button class="vista-add" onclick="addAerea()">+ Vista aérea</button>
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-        <label style="margin:0;">Nome da planta</label>
-        <input type="text" style="width:220px;margin:0;" value="${pl.nome||''}" oninput="state.plantas[${state.plantaAtiva}].nome=this.value" onchange="renderContent()">
-        ${state.plantas.length>1 ? `<button class="btn danger small" onclick="removePlanta(${state.plantaAtiva})">Excluir planta</button>` : ''}
+        <label style="margin:0;">${vista ? 'Nome da vista' : 'Nome da planta'}</label>
+        <input type="text" style="width:220px;margin:0;" value="${pl.nome||''}" oninput="state.planta.nome=this.value" onchange="renderContent()">
+        ${vista ? `<button class="btn danger small" onclick="removeAerea(${state.aereaAtiva})">Excluir vista</button>`
+          : state.plantas.length>1 ? `<button class="btn danger small" onclick="removePlanta(${state.plantaAtiva})">Excluir planta</button>` : ''}
       </div>
+      ${vista ? tplVistaImagem(pl) : `
       <label>Planta baixa (imagem ou PDF)</label>
       <input type="file" accept="image/*,application/pdf,.pdf" onchange="handlePlantaUpload(event)" style="margin-bottom:4px;">
-      <div class="hint">PDF com mais de uma página: você escolhe qual usar.</div>
+      <div class="hint">PDF com mais de uma página: você escolhe qual usar.</div>`}
       <div class="toolbar-types">
         ${tplMenuInserir(pl)}
+        ${vista ? tplEquipPlanta(pl) : ''}
         <button class="type-btn ${pl.selectedTipo==='area'?'active':''}" onclick="selectTipo('area')">
           <span class="icon-dot" style="background:#5A6B82">▧</span>Demarcar Área
         </button>
@@ -68,13 +77,13 @@ export function tplPlanta(){
           ? `<div id="plantaWrap" style="position:relative;width:${pl.zoom||100}%;">
                <img id="plantaImg" src="${pl.imagem}">
              </div>`
-          : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
+          : vista ? tplVistaVazia() : `<div class="empty-hint">Envie uma imagem da planta baixa para começar a posicionar os equipamentos.</div>`}
       </div>
       <div class="pinlist">
-        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0 && !(pl.muros||[]).length) ? `<div class="hint">Nenhum equipamento posicionado ainda.</div>` : pl.pins.map((p,pi)=>`
+        ${(pl.pins.length===0 && pl.cercas.length===0 && pl.areas.length===0 && pl.etiquetas.length===0 && !(pl.muros||[]).length) ? `<div class="hint">${vista ? 'Nada posicionado nesta vista ainda.' : 'Nenhum equipamento posicionado ainda.'}</div>` : pl.pins.map((p,pi)=> p.ref ? tplRefRow(p, pi) : `
           <div class="pinrow">
             <span class="icon-dot" style="background:${typeById(p.tipoId).color}">${ICONS[p.tipoId]}</span>
-            <b style="font-size:12px;color:var(--text-mid);width:18px;">${typeById(p.tipoId).cenario ? '' : numeroDoPin(state.plantaAtiva, pi)}</b>
+            <b style="font-size:12px;color:var(--text-mid);width:18px;">${typeById(p.tipoId).cenario ? '' : numeroDoPinEm(pl, pi)}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
               ${CATEGORIAS_INSERIR.map(c=>{
                 const ops = c.tipos.filter(id=>(id!=='cerca' && id!=='muro') || p.tipoId===id);
@@ -83,9 +92,7 @@ export function tplPlanta(){
             </select>
             <input type="text" style="flex:1;min-width:140px;" placeholder="Rótulo (ex: Monitoramento bombas/Pit)" value="${p.label}" oninput="state.planta.pins[${pi}].label=this.value">
             <input type="number" min="1" style="width:60px" value="${p.qtd}" oninput="state.planta.pins[${pi}].qtd=this.value">
-            ${typeById(p.tipoId).cameraLike && !typeById(p.tipoId).foco360 ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
-            ${typeById(p.tipoId).ajustaAlcance && temEscala(pl) ? tplAlcanceMetros(p, pi) + tplAberturaControles(p, pi) : ''}
-            ${typeById(p.tipoId).ajustaAlcance && !temEscala(pl) ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>${tplAberturaControles(p, pi)}` : ''}
+            ${tplControlesFoco(p, pi, pl)}
             <button class="btn danger small" onclick="removePin(${pi})">✕</button>
           </div>
         `).join('')}
@@ -112,15 +119,17 @@ let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem
 
 export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); cancelarEscala(); }
 export function selectPlanta(i){
-  if(i===state.plantaAtiva) return;
+  if(i===state.plantaAtiva && state.aereaAtiva===null) return;
   cancelarTraco();
   state.plantaAtiva = i;
+  state.aereaAtiva = null;
   renderContent();
 }
 export function addPlanta(){
   cancelarTraco();
   state.plantas.push(novaPlanta('Planta '+(state.plantas.length+1)));
   state.plantaAtiva = state.plantas.length-1;
+  state.aereaAtiva = null;
   renderContent();
 }
 export function removePlanta(i){
@@ -139,11 +148,15 @@ export function removePlanta(i){
 // Painel por clique (não por hover) para funcionar no toque; fecha ao escolher ou ao tocar fora.
 function tplMenuInserir(pl){
   const sel = EQUIP_TYPES.find(t=>t.id===pl.selectedTipo);
+  // na vista aérea só entra cenário (portão, poste, muro…): equipamento vem da planta, como referência
+  const cats = pl.aerea
+    ? CATEGORIAS_INSERIR.map(c=>({...c, tipos:c.tipos.filter(id=>typeById(id).cenario)})).filter(c=>c.tipos.length)
+    : CATEGORIAS_INSERIR;
   return `
     <div class="inserir-wrap">
       <button class="type-btn inserir-btn" onclick="toggleMenuInserir()">＋ Inserir ▾</button>
       <div id="menuInserir" class="inserir-menu">
-        ${CATEGORIAS_INSERIR.map(c=>`
+        ${cats.map(c=>`
           <div class="inserir-sec">
             <div class="inserir-titulo">${c.label}</div>
             <div class="inserir-itens">
@@ -158,6 +171,7 @@ function tplMenuInserir(pl){
     ${sel ? `<span class="type-btn active inserir-atual" onclick="toggleMenuInserir()" title="Item selecionado — clique na planta para posicionar"><span class="icon-dot" style="background:${sel.color}">${ICONS[sel.id]}</span>${sel.label}</span>` : ''}`;
 }
 export function toggleMenuInserir(){
+  document.getElementById('menuEquip')?.classList.remove('open');
   document.getElementById('menuInserir')?.classList.toggle('open');
 }
 document.addEventListener('pointerdown', e=>{
@@ -275,6 +289,12 @@ export function afterPlantaRender(){
       const rect = img.getBoundingClientRect();
       const x = ((e.clientX-rect.left)/rect.width)*100;
       const y = ((e.clientY-rect.top)/rect.height)*100;
+      if(state.planta.aerea){
+        const sel = state.planta.selectedTipo || '';
+        if(sel.startsWith('ref:')){ criarRefNoClique(x, y); return; }
+        // na vista, fora das ferramentas de desenho só cenário cria pin (equipamento entra como referência)
+        if(!FERRAMENTAS_VISTA.includes(sel) && !EQUIP_TYPES.find(t=>t.id===sel)?.cenario) return;
+      }
       if(state.planta.selectedTipo==='etiqueta'){
         state.planta.etiquetas.push(novaEtiqueta(x, y));
         renderContent();
@@ -360,7 +380,7 @@ export function afterPlantaRender(){
       pin.className = 'planta-pin';
       pin.title = 'Arraste para reposicionar';
       pin.style.cssText = `position:absolute;left:${p.x}%;top:${p.y}%;transform:translate(-50%,-50%);border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:3;cursor:grab;touch-action:none;`;
-      pin.innerHTML = ICONS[t.id] + (t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(state.plantaAtiva, pi)}</span>`);
+      pin.innerHTML = ICONS[t.id] + (t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPinEm(state.planta, pi)}</span>`);
       pin.onpointerdown = (e)=>startPinDrag(e, pi);
       wrap.appendChild(pin);
       posicionarMarcaMuro(pi);
@@ -661,6 +681,13 @@ export function liveUpdateAlcance(pi, pct){
   if(lbl) lbl.textContent = parseInt(pct)+'%';
   updatePinDOM(pi);
 }
+// Controles do foco na linha do pin (direção, alcance, abertura; altura com escala) — planta e vista aérea
+export function tplControlesFoco(p, pi, pl){
+  const t = typeById(p.tipoId);
+  return `${t.cameraLike && !t.foco360 ? `<span style="font-size:11px;color:var(--text-mid);">Direção</span><input id="dirslider-${pi}" type="range" min="0" max="359" value="${p.direcao||0}" style="width:80px;margin-bottom:0;" oninput="liveUpdateCone(${pi}, this.value)"><span id="deglabel-${pi}" style="font-size:11px;color:var(--text-mid);width:32px;">${p.direcao||0}°</span>` : ''}
+            ${t.ajustaAlcance && temEscala(pl) ? tplAlcanceMetros(p, pi) + tplAberturaControles(p, pi) : ''}
+            ${t.ajustaAlcance && !temEscala(pl) ? `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_MIN*100}" max="${ALCANCE_MAX*100}" value="${Math.round(alcanceDe(p)*100)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcance(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:36px;">${Math.round(alcanceDe(p)*100)}%</span>${tplAberturaControles(p, pi)}` : ''}`;
+}
 // Alcance em metros + altura + ponto cego (Bullet/Dome numa planta com escala)
 function tplAlcanceMetros(p, pi){
   return `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_M_MIN}" max="${ALCANCE_M_MAX}" step="0.5" value="${alcanceMDe(p)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcanceM(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:44px;">${fmtM(alcanceMDe(p))}</span><span style="font-size:11px;color:var(--text-mid);">Altura (m)</span><input type="number" id="altura-${pi}" min="${ALTURA_MIN}" max="${ALTURA_MAX}" step="0.5" value="${alturaDe(p)}" style="width:60px" oninput="liveUpdateAltura(${pi}, this.value)" onchange="syncAlturaCampo(${pi})"><span id="cego-${pi}" style="font-size:11px;color:var(--text-mid);">Ponto cego: ${fmtM(cegoDoPin(p))}</span>`;
@@ -708,6 +735,7 @@ export function removePin(pi){ state.planta.pins.splice(pi,1); renderContent(); 
 
 export async function handlePlantaUpload(e){
   const f = e.target.files[0]; if(!f) return;
+  if(state.planta.aerea && temConteudoVista(state.planta) && !confirm('Trocar a imagem apaga o que está posicionado nesta vista (muros ficam). Continuar?')){ e.target.value=''; return; }
   if(isPdfFile(f)){ await handlePlantaPdfUpload(f); e.target.value=''; return; }
   state.planta.imagem = await fileToDataURL(f);
   limparPlanta(state.planta);

@@ -43,12 +43,15 @@ let lastRenderTab = null, lastRenderPlanta = -1;
 let pularRolagem = false;
 export function resetRolagem(){ pularRolagem = true; }
 
+// Chave do que está no editor: vista aérea ativa ('a'+índice) ou índice da planta
+const chavePlanta = ()=>state.aereaAtiva!==null && state.aereaAtiva!==undefined ? 'a'+state.aereaAtiva : state.plantaAtiva;
+
 export function renderContent(){
   const c = document.getElementById('content');
   // Rolagem só é preservada ao re-renderizar a MESMA planta da aba Planta
   let keep = null;
   const pular = pularRolagem; pularRolagem = false;
-  if(!pular && currentTab==='planta' && lastRenderTab==='planta' && lastRenderPlanta===state.plantaAtiva){
+  if(!pular && currentTab==='planta' && lastRenderTab==='planta' && lastRenderPlanta===chavePlanta()){
     const sc = document.getElementById('plantaScroll');
     if(sc) keep = {l:sc.scrollLeft, t:sc.scrollTop, y:window.scrollY};
   }
@@ -60,7 +63,7 @@ export function renderContent(){
   else if(currentTab==='equipamentos') { c.innerHTML = tplEquipamentos(); afterEquipamentosRender(); }
   else if(currentTab==='premissas') c.innerHTML = tplPremissas();
   else if(currentTab==='gerar') c.innerHTML = tplGerar();
-  lastRenderTab = currentTab; lastRenderPlanta = state.plantaAtiva;
+  lastRenderTab = currentTab; lastRenderPlanta = chavePlanta();
 }
 
 function restaurarRolagem(k){
