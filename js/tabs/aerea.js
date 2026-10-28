@@ -49,8 +49,34 @@ export function tplAbasVistas(){
 // ---------- imagem de fundo: mapa de satélite / troca ----------
 let mapa = null;   // instância Leaflet viva (no máx. uma; destruída a cada renderContent)
 let troca = null;  // vista em "Trocar imagem" (mostra o mapa mesmo já tendo imagem)
-let resultadosBusca = [];
+let resultadosBusca = [];   // últimos resultados do Nominatim…
+let resultadosPl = null;    // …e a vista a que pertencem (sobrevivem a renderContent)
+let resultadoAtivo = -1;
 let buscando = false;
+let vistaMapa = null;       // último enquadramento do mapa {pl, lat, lng, zoom} (atualizado no moveend)
+let avisouSemMapa = false;  // toast "Mapa indisponível" só uma vez por sessão
+let capturaId = 0;          // token da captura em andamento (uma mais nova ou mudança de tela descarta a anterior)
+
+// Enquadramento inicial do mapa: o último visto nesta vista (sobrevive a renderContent),
+// senão o salvo na captura (pl.mapa), senão o Brasil.
+export function vistaInicial(pl){
+  if(vistaMapa && vistaMapa.pl===pl) return {lat: vistaMapa.lat, lng: vistaMapa.lng, zoom: vistaMapa.zoom};
+  if(pl?.mapa) return {lat: pl.mapa.lat, lng: pl.mapa.lng, zoom: pl.mapa.zoom};
+  return {lat:-15.8, lng:-47.9, zoom:4};
+}
+export function lembrarVista(pl, lat, lng, zoom){ vistaMapa = {pl, lat, lng, zoom}; }
+
+// Resultados da busca de uma vista (gravados para re-render)
+export function definirResultados(pl, lista){
+  resultadosPl = pl;
+  resultadosBusca = Array.isArray(lista) ? lista.slice(0, 5) : [];
+  resultadoAtivo = -1;
+}
+export function tplResultados(pl){
+  if(resultadosPl!==pl) return '';
+  if(!resultadosBusca.length) return '<div class="hint" style="margin:0;">Nenhum resultado. Tente outro termo ou cole as coordenadas (lat, long).</div>';
+  return resultadosBusca.map((it,i)=>`<button class="mapa-resultado ${i===resultadoAtivo?'active':''}" onclick="irParaResultado(${i})">${escHtml(it.display_name||'')}</button>`).join('');
+}
 
 // A vista mostra o mapa (em vez do editor) quando não tem imagem ou está trocando a imagem
 export function mostrandoMapa(pl){
@@ -87,7 +113,7 @@ export function tplMapaAereo(pl){
         <input type="text" id="mapaBusca" placeholder="Endereço, cidade ou coordenadas (ex.: -22.6029, -48.8031)" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarLocal();}">
         <button class="btn primary small" id="mapaBuscarBtn" onclick="buscarLocal()">Buscar</button>
       </div>
-      <div id="mapaResultados" class="mapa-resultados"></div>` : `
+      <div id="mapaResultados" class="mapa-resultados">${tplResultados(pl)}</div>` : `
       <div class="mapa-aviso">Mapa de satélite indisponível (sem conexão?). Envie uma imagem própria: print do Google Earth/Maps, foto de drone ou PDF.</div>`}
       <div class="mapa-acoes">
         ${temL ? `<button class="btn primary" id="mapaCapturarBtn" onclick="capturarMapa()">📷 Capturar</button>` : ''}
@@ -108,15 +134,20 @@ export function montarMapa(){
   destruirMapa();
   const pl = state.planta;
   if(!mostrandoMapa(pl)) return;
-  if(!window.L){ showToast('Mapa indisponível (sem conexão?). Envie uma imagem própria.'); return; }
+  if(!window.L){
+    if(!avisouSemMapa){ avisouSemMapa = true; showToast('Mapa indisponível (sem conexão?). Envie uma imagem própria.'); }
+    return;
+  }
   const el = document.getElementById('mapaAereo');
   if(!el) return;
   const L = window.L;
   mapa = L.map(el, {zoomSnap:1, maxZoom:MAPA_ZOOM_MAX});
   L.tileLayer(TILE_URL, {maxZoom:MAPA_ZOOM_MAX, attribution:CREDITO_ESRI, crossOrigin:'anonymous'}).addTo(mapa);
-  const c = pl.mapa || {lat:-15.8, lng:-47.9, zoom:4}; // último enquadramento ou Brasil
+  const c = vistaInicial(pl);
   mapa.setView([c.lat, c.lng], c.zoom);
   mapa.invalidateSize();
+  const m = mapa;
+  mapa.on('moveend', ()=>{ if(m===mapa){ const ce = m.getCenter(); lembrarVista(pl, ce.lat, ce.lng, m.getZoom()); } });
 }
 export const mapaAtual = ()=>mapa;
 
@@ -126,9 +157,10 @@ export async function buscarLocal(){
   if(!inp || !mapa) return;
   const q = inp.value.trim();
   if(!q) return;
+  const pl = state.planta;
   const box = document.getElementById('mapaResultados');
   const c = lerCoordenadas(q);
-  if(c){ if(box) box.innerHTML = ''; mapa.setView([c.lat, c.lng], 18); return; }
+  if(c){ resultadosPl = null; if(box) box.innerHTML = ''; mapa.setView([c.lat, c.lng], 18); return; }
   if(buscando) return;
   buscando = true;
   const btn = document.getElementById('mapaBuscarBtn');
@@ -138,12 +170,11 @@ export async function buscarLocal(){
     const r = await fetch(url, {headers:{Accept:'application/json'}});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const lista = await r.json();
-    resultadosBusca = Array.isArray(lista) ? lista.slice(0, 5) : [];
+    definirResultados(pl, lista);
     const box2 = document.getElementById('mapaResultados');
-    if(!box2 || !mapa) return; // a tela trocou durante a busca
-    if(!resultadosBusca.length){ box2.innerHTML = '<div class="hint" style="margin:0;">Nenhum resultado. Tente outro termo ou cole as coordenadas (lat, long).</div>'; return; }
-    box2.innerHTML = resultadosBusca.map((it,i)=>`<button class="mapa-resultado" onclick="irParaResultado(${i})">${escHtml(it.display_name||'')}</button>`).join('');
-    irParaResultado(0);
+    if(!box2 || !mapa || state.planta!==pl) return; // a tela trocou durante a busca
+    box2.innerHTML = tplResultados(pl);
+    if(resultadosBusca.length) irParaResultado(0);
   }catch(e){
     console.error(e);
     showToast('Busca indisponível. Cole as coordenadas (lat, long) do Google Maps.');
@@ -156,6 +187,7 @@ export async function buscarLocal(){
 export function irParaResultado(i){
   const it = resultadosBusca[i];
   if(!it || !mapa) return;
+  resultadoAtivo = i;
   document.querySelectorAll('.mapa-resultado').forEach((b,j)=>b.classList.toggle('active', j===i));
   const bb = (it.boundingbox||[]).map(Number); // [sul, norte, oeste, leste]
   if(bb.length===4 && bb.every(Number.isFinite)) mapa.fitBounds([[bb[0], bb[2]], [bb[1], bb[3]]], {maxZoom:18});
@@ -175,19 +207,21 @@ function carregarTile(url){
 }
 
 // Tile "Map data not yet available" da Esri: quase todo cinza #CCCCCC (com texto branco).
-// Amostra 32×32; >85% dos pixels nesse cinza = sem dados nesse zoom. (Lança se o tile sujou o canvas.)
+// Medido: 94% dos pixels exatamente 204,204,204 e 97,6% a ±6. Tile inteiro (256×256), cinza neutro
+// a ±3 de 204 em >90% dos pixels — foto real (pátio de concreto, telhado) tem ruído e não passa.
+// (Lança se o tile sujou o canvas.)
 const amostra = document.createElement('canvas');
-amostra.width = amostra.height = 32;
-function tileSemDados(img){
+amostra.width = amostra.height = 256;
+export function tileSemDados(img){
   const g = amostra.getContext('2d', {willReadFrequently:true});
-  g.clearRect(0, 0, 32, 32);
-  g.drawImage(img, 0, 0, 32, 32);
-  const d = g.getImageData(0, 0, 32, 32).data;
+  g.clearRect(0, 0, 256, 256);
+  g.drawImage(img, 0, 0, 256, 256);
+  const d = g.getImageData(0, 0, 256, 256).data;
   let n = 0;
   for(let i=0; i<d.length; i+=4){
-    if(Math.abs(d[i]-204)<=8 && Math.abs(d[i+1]-204)<=8 && Math.abs(d[i+2]-204)<=8) n++;
+    if(Math.abs(d[i]-204)<=3 && Math.abs(d[i+1]-204)<=3 && Math.abs(d[i+2]-204)<=3) n++;
   }
-  return n > 0.85*1024;
+  return n > 0.9*65536;
 }
 
 // Monta a captura: bounds em pixels de mundo no zoom z ({x0,y0,x1,y1}); desenha os tiles de z
@@ -254,14 +288,19 @@ export async function capturarMapa(){
   const restaura = ()=>{ const b = document.getElementById('mapaCapturarBtn'); if(b){ b.disabled = false; b.textContent = '📷 Capturar'; } };
   const btn = document.getElementById('mapaCapturarBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Capturando…'; }
+  const meu = ++capturaId;
+  // ainda vale? (sem captura mais nova, mesma vista ativa e ainda na tela do mapa)
+  const valida = ()=>meu===capturaId && state.planta===pl && mostrandoMapa(pl);
   let r;
   try{
     r = await capturaComZoom(bounds, z, zc);
   }catch(e){
     console.error(e);
+    if(!valida()) return;
     showToast('O servidor de satélite bloqueou a captura. Envie uma imagem própria.');
     restaura(); return;
   }
+  if(!valida()) return; // a vista mudou durante o download (troca de vista, upload, exclusão…): descarta
   if(!r){
     showToast('Não foi possível carregar as imagens de satélite. Verifique a conexão e tente de novo.');
     restaura(); return;

@@ -958,6 +958,29 @@ try{
     assert('capturaComZoom: z19 com dados fica em z19', !!rZ2 && rZ2.zoom===19 && rZ2.largura===1200);
     const rZ3 = await TA.capturaComZoom({x0:cx, y0:cy, x1:cx+600, y1:cy+400}, 19, 19, cinza);
     assert('capturaComZoom: sem zoom menor, devolve com semDados', !!rZ3 && rZ3.zoom===19 && rZ3.semDados>0);
+    // foto real cinza (concreto/telhado: cinza próximo com ruído) NÃO é "sem dados"
+    const concreto = document.createElement('canvas'); concreto.width = 256; concreto.height = 256;
+    { const g = concreto.getContext('2d'); const id = g.createImageData(256, 256); let sd = 7;
+      const rnd = ()=>{ sd = (sd*16807) % 2147483647; return sd/2147483647; };
+      for(let i=0; i<id.data.length; i+=4){ const b = 200 + Math.round(rnd()*12); id.data[i] = b; id.data[i+1] = b+1; id.data[i+2] = b-2; id.data[i+3] = 255; }
+      g.putImageData(id, 0, 0); }
+    assert('tileSemDados: concreto com ruído não conta', TA.tileSemDados(concreto)===false);
+    const cinzaCv = await cinza('x');
+    assert('tileSemDados: placeholder Esri conta', TA.tileSemDados(cinzaCv)===true);
+    // enquadramento inicial: último visto nesta vista > pl.mapa > Brasil
+    const vA = STy.novaAerea('A'), vB = STy.novaAerea('B');
+    assert('vistaInicial: sem nada → Brasil z4', JSON.stringify(TA.vistaInicial(vA))===JSON.stringify({lat:-15.8, lng:-47.9, zoom:4}));
+    vA.mapa = {lat:-22.6, lng:-48.8, zoom:17};
+    assert('vistaInicial: usa pl.mapa', TA.vistaInicial(vA).zoom===17 && TA.vistaInicial(vA).lat===-22.6);
+    TA.lembrarVista(vA, -22.61, -48.81, 18);
+    assert('vistaInicial: último enquadramento vence pl.mapa', TA.vistaInicial(vA).zoom===18 && TA.vistaInicial(vA).lng===-48.81);
+    assert('vistaInicial: enquadramento de outra vista não vaza', TA.vistaInicial(vB).zoom===4);
+    // resultados da busca sobrevivem ao re-render (só na vista dona)
+    TA.definirResultados(vA, [{display_name:'Lençóis Paulista, SP'}, {display_name:'Outro <b>'}]);
+    assert('tplResultados: lista da vista dona, com escape', TA.tplResultados(vA).includes('Lençóis Paulista, SP') && TA.tplResultados(vA).includes('&lt;b&gt;') && TA.tplResultados(vB)==='');
+    TA.definirResultados(vA, []);
+    assert('tplResultados: vazio mostra "Nenhum resultado"', TA.tplResultados(vA).includes('Nenhum resultado'));
+    TA.definirResultados(null, []);
 
     // template sem Leaflet (harness não carrega window.L)
     const Lsv = window.L; delete window.L;
@@ -969,6 +992,8 @@ try{
     const txt = ()=>document.getElementById('content').textContent;
     assert('mapa: sem Leaflet mostra aviso', !!document.querySelector('.mapa-aviso') && !document.getElementById('mapaAereo'));
     assert('mapa: sem Leaflet oferece "Enviar imagem própria"', txt().includes('Enviar imagem própria') && !!document.querySelector('#content input[type="file"]'));
+    { const t = document.getElementById('toast'); t.textContent = ''; window.renderContent();
+      assert('mapa: toast "Mapa indisponível" só uma vez por sessão', !t.textContent.includes('Mapa indisponível')); }
     assert('mapa: sem Leaflet não mostra Capturar', ![...document.querySelectorAll('#content button')].some(b=>b.textContent.includes('Capturar')));
     assert('mapa: vista sem imagem não mostra editor', !document.getElementById('plantaScroll'));
     assert('mapa: sem "Trocar imagem" nem Cancelar quando não há imagem', !txt().includes('Trocar imagem') && ![...document.querySelectorAll('#content button')].some(b=>b.textContent.trim()==='Cancelar'));
