@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { EQUIP_TYPES } from './constants.js';
+import { pinOriginal } from './aerea.js';
 
 // Numeração por tipo de equipamento (tipoId), contínua entre plantas:
 // percorre state.plantas na ordem e, dentro de cada planta, a ordem dos pins.
@@ -15,6 +16,18 @@ export function numeroDoPin(plantaIdx, pinIdx){
     for(let j=0; j<fim; j++) if(pins[j].tipoId===alvo.tipoId) n++;
   }
   return n+1;
+}
+
+// Número do pin pi de uma planta OU vista aérea: referência (pin.ref) usa o número do
+// original na planta (0 se órfã); pin comum usa o índice da planta em state.plantas.
+export function numeroDoPinEm(pl, pi){
+  const pin = pl?.pins?.[pi];
+  if(!pin) return 0;
+  if(pin.ref){
+    const o = pinOriginal(pin.ref);
+    return o ? numeroDoPin(o.plantaIdx, o.pinIdx) : 0;
+  }
+  return numeroDoPin(state.plantas.indexOf(pl), pi);
 }
 
 // Só tipos com ao menos um pin, na ordem de EQUIP_TYPES; pontos em ordem de número.

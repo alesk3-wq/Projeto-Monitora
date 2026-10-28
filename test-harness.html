@@ -727,6 +727,84 @@ try{
     assert('remover seção com desc viva pergunta', perguntou);
     state.estrutura = salvoE;
   }
+  // ===== Vista aérea: modelo, referências, persistência, geometria do mapa =====
+  {
+    const AE = await import('./js/aerea.js');
+    const ESx = await import('./js/escala.js');
+    const STx = await import('./js/state.js');
+    const Nx = await import('./js/numeracao.js');
+    const Px = await import('./js/persistence.js');
+    assert('aérea: metrosPorPixel(0,0) ≈ 156543.03', Math.abs(AE.metrosPorPixel(0,0)-156543.03) <= 0.01);
+    assert('aérea: metrosPorPixel(-22.6,19) ≈ 0.2757', Math.abs(AE.metrosPorPixel(-22.6,19)-0.2757) <= 0.001);
+    const ec = AE.escalaCaptura(1000, 0.5);
+    assert('aérea: escalaCaptura metros/metrosLargura', ec.metrosLargura===500 && ec.metros===400);
+    assert('aérea: escalaCaptura compatível com metrosLarguraDe', Math.abs(ESx.metrosLarguraDe(ec.a, ec.b, ec.metros, 1000, 600)-500) < 1e-6);
+    const lc = AE.lerCoordenadas('-22.6029, -48.8031');
+    assert('aérea: lerCoordenadas lat,lng', !!lc && lc.lat===-22.6029 && lc.lng===-48.8031);
+    const lc2 = AE.lerCoordenadas('-22.6029 -48.8031');
+    assert('aérea: lerCoordenadas separado por espaço', !!lc2 && lc2.lat===-22.6029 && lc2.lng===-48.8031);
+    assert('aérea: lerCoordenadas texto → null', AE.lerCoordenadas('Rua X 10')===null);
+    assert('aérea: lerCoordenadas lat fora do intervalo → null', AE.lerCoordenadas('95, 10')===null);
+    assert('aérea: lerCoordenadas vírgula decimal → null', AE.lerCoordenadas('-22,6029 -48,8031')===null);
+    assert('aérea: constantes', AE.MAPA_ZOOM_MAX===19 && AE.CAPTURA_MAX===4096 && typeof AE.CREDITO_ESRI==='string' && AE.TILE_URL.includes('World_Imagery'));
+
+    // referências
+    const salvoPl = state.plantas, salvoPA = state.plantaAtiva, salvoAe = state.aereas, salvoAA = state.aereaAtiva;
+    const plT = STx.novaPlanta('T');
+    plT.pins.push({id:'b0', tipoId:'bullet', label:'Outra', qtd:1, x:1, y:1, direcao:0});
+    plT.pins.push({id:'o1', tipoId:'bullet', label:'Portaria', qtd:2, altura:6, x:5, y:5, direcao:90});
+    state.plantas = [plT]; state.plantaAtiva = 0;
+    const r = AE.novaRef('o1', 10, 10);
+    assert('aérea: ref lê tipo/label/qtd/altura do original', r.tipoId==='bullet' && r.label==='Portaria' && r.qtd===2 && r.altura===6);
+    assert('aérea: ref nasce com direção do original e id próprio', r.direcao===90 && r.ref==='o1' && r.id && r.id!=='o1');
+    r.altura = 9;
+    assert('aérea: altura da ref grava no original', plT.pins[1].altura===9);
+    plT.pins[1].tipoId = 'dome';
+    assert('aérea: ref acompanha troca de tipo', r.tipoId==='dome');
+    const js = JSON.stringify(r);
+    assert('aérea: JSON da ref sem campos do original', !js.includes('tipoId') && !js.includes('label') && !js.includes('qtd') && !js.includes('altura'));
+    plT.pins[1].tipoId = 'bullet';
+    const vista = STx.novaAerea('V');
+    assert('aérea: novaAerea', vista.aerea===true && vista.selectedTipo==='nenhum' && vista.nome==='V' && Array.isArray(vista.muros));
+    vista.pins.push(r);
+    state.aereas = [vista]; state.aereaAtiva = null;
+    assert('aérea: numeroDoPinEm da ref == numeroDoPin do original', Nx.numeroDoPinEm(vista, 0)===Nx.numeroDoPin(0,1) && Nx.numeroDoPin(0,1)===2);
+    assert('aérea: numeroDoPinEm em planta normal', Nx.numeroDoPinEm(plT, 1)===2);
+    assert('aérea: refsColocadas', AE.refsColocadas(vista).has('o1'));
+    // ref vinda de json com campos próprios → removidos ao vincular
+    const rj = {id:'x', ref:'o1', x:1, y:1, tipoId:'lpr', label:'velho', qtd:5};
+    AE.vincularRef(AE.vincularRef(rj));
+    assert('aérea: vincularRef idempotente e ignora campos gravados', rj.tipoId==='bullet' && rj.label==='Portaria' && !JSON.stringify(rj).includes('velho'));
+    const ro = AE.vincularRef({id:'y', ref:'nao-existe', x:1, y:1});
+    assert('aérea: ref órfã devolve valores seguros', ro.tipoId==='outro' && ro.label==='' && ro.qtd===1 && ro.altura===undefined);
+    assert('aérea: numeroDoPinEm de órfã = 0', (vista.pins.push(ro), Nx.numeroDoPinEm(vista, 1)===0));
+    vista.pins.length = 1;
+    // alias
+    state.aereaAtiva = 0;
+    assert('aérea: alias aponta para a vista ativa', state.planta===state.aereas[0]);
+    state.aereaAtiva = null;
+    assert('aérea: alias volta para a planta ativa', state.planta===state.plantas[0]);
+    assert('aérea: alias não-enumerável', !Object.keys(state).includes('planta'));
+    // órfãs
+    plT.pins.splice(1,1);
+    const rem = AE.limparRefsOrfas();
+    assert('aérea: limparRefsOrfas remove ref órfã', rem===1 && vista.pins.length===0);
+    state.plantas = salvoPl; state.plantaAtiva = salvoPA; state.aereas = salvoAe; state.aereaAtiva = salvoAA;
+
+    // limparPlanta apaga fonte
+    const plF = STx.novaAerea('F'); plF.fonte = 'mapa';
+    STx.limparPlanta(plF);
+    assert('aérea: limparPlanta apaga fonte', !('fonte' in plF));
+
+    // normalização
+    const n1 = Px.normalizarProjeto({plantas:[{pins:[]}]});
+    assert('aérea: normalizar sem aereas', Array.isArray(n1.aereas) && n1.aereas.length===0 && n1.aereaAtiva===null);
+    const n2 = Px.normalizarProjeto({plantas:[{pins:[{id:'o1',tipoId:'bullet'}]}], aereas:[{pins:[{id:'r1',ref:'o1',x:1,y:1}]}], aereaAtiva:5});
+    const v2 = n2.aereas[0];
+    assert('aérea: normalizar vista', n2.aereaAtiva===null && v2.aerea===true && ['muros','areas','etiquetas','cercas'].every(k=>Array.isArray(v2[k])) && v2.nome && v2.zoom===100);
+    const n3 = Px.normalizarProjeto({plantas:[{pins:[]}], aereas:[{pins:[{x:1,y:1,tipoId:'poste'}]}], aereaAtiva:0});
+    assert('aérea: normalizar mantém aereaAtiva válida e cria ids', n3.aereaAtiva===0 && !!n3.aereas[0].pins[0].id);
+  }
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }

@@ -1,9 +1,11 @@
 import { state, setState, novaPlanta, attachPlantaAlias } from './state.js';
+import { limparRefsOrfas } from './aerea.js';
 import { switchTab } from './nav.js';
 import { showToast, novoId } from './utils.js';
 import { CONSIDERACOES_PADRAO } from './constants.js';
 
 export function exportarProjeto(){
+  limparRefsOrfas();
   const dataStr = JSON.stringify(state, null, 2);
   const blob = new Blob([dataStr], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -28,7 +30,17 @@ export function normalizarProjeto(loaded){
   // .json de antes da caixa "Considerações finais": mantém a frase padrão que já saía fixa no PDF
   if(typeof loaded.consideracoes !== 'string') loaded.consideracoes = CONSIDERACOES_PADRAO;
   loaded.plantaAtiva = Math.max(0, Math.min(parseInt(loaded.plantaAtiva)||0, loaded.plantas.length-1));
-  loaded.plantas.forEach((pl,i)=>{
+  // Vistas aéreas: lista separada das plantas; .json antigos não têm a chave
+  if(!Array.isArray(loaded.aereas)) loaded.aereas = [];
+  loaded.aereas = loaded.aereas.filter(v=>v && typeof v==='object');
+  const aa = loaded.aereaAtiva;
+  loaded.aereaAtiva = (Number.isInteger(aa) && aa>=0 && aa<loaded.aereas.length) ? aa : null;
+  loaded.aereas.forEach((v,i)=>{
+    if(!v.nome) v.nome = 'Vista aérea '+(i+1);
+    v.aerea = true;
+    if(!v.selectedTipo) v.selectedTipo = 'nenhum';
+  });
+  [...loaded.plantas, ...loaded.aereas].forEach((pl,i)=>{
     if(!pl.nome) pl.nome = 'Planta '+(i+1);
     if(pl.zoom===undefined) pl.zoom = 100;
     if(!pl.pins) pl.pins = [];
@@ -69,6 +81,7 @@ export function importarProjetoFile(e){
       const loaded = normalizarProjeto(JSON.parse(ev.target.result));
       setState(loaded);
       attachPlantaAlias(state);
+      limparRefsOrfas(); // remove referências órfãs e vincula as demais aos pins originais
       switchTab('projeto');
       showToast('Projeto importado com sucesso.');
     }catch(err){
