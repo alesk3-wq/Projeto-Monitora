@@ -1,6 +1,7 @@
 import { state } from './state.js';
-import { numeroDoPin, pontosPorTipo, trechosCerca } from './numeracao.js';
-import { BRAND, ICONS, PW, PH } from './constants.js';
+import { numeroDoPin, numeroDoPinEm, pontosPorTipo, trechosCerca } from './numeracao.js';
+import { limparRefsOrfas, CREDITO_ESRI } from './aerea.js';
+import { BRAND, ICONS, PW, PH, EQUIP_TYPES } from './constants.js';
 import { showToast, fmtDate, typeById, areaCatById, escHtml, alcanceDe, aberturaDe } from './utils.js';
 import { etqGeom, ETQ_COR } from './tabs/etiquetas.js';
 import { generateCropDataURL } from './tabs/equipamentos.js';
@@ -205,6 +206,19 @@ export function legendaResumo(li=null){
   if(nMuros) out.push({tipoId:'muro', qtd:nMuros});
   return out;
 }
+// Legenda de uma vista aérea: só o que está na vista (refs valem pela qtd do original; cenário incluído),
+// por tipo na ordem de EQUIP_TYPES; cercas contam trechos e muros contam peças.
+export function legendaVista(pl){
+  const out = EQUIP_TYPES.map(t=>({
+    tipoId: t.id,
+    qtd: (pl.pins||[]).filter(p=>p.tipoId===t.id).reduce((s,p)=>s+(parseInt(p.qtd)||1), 0),
+  })).filter(l=>l.qtd>0 && l.tipoId!=='cerca' && l.tipoId!=='muro');
+  const nCercas = (pl.cercas||[]).length;
+  if(nCercas) out.push({tipoId:'cerca', qtd:nCercas});
+  const nMuros = (pl.muros||[]).length;
+  if(nMuros) out.push({tipoId:'muro', qtd:nMuros});
+  return out;
+}
 // Grupos gerados (por tipo, vivos) no lugar da entrada {gerado:true} da Estrutura
 function estruturaGeradaHtml(){
   return gruposGerados().map(g=>`
@@ -295,7 +309,7 @@ export function etiquetasHtml(pl, rect){
 // Legenda embaixo da planta no Mapeamento (só os itens daquela planta): equipamentos em 4 colunas,
 // áreas em 2. Altura estimada pelo nº de linhas para a planta ocupar o resto da página.
 function legendaMapeamento(pl, li){
-  const eq = legendaResumo(li), areas = pl.areas||[];
+  const eq = pl.aerea ? legendaVista(pl) : legendaResumo(li), areas = pl.areas||[];
   if(!eq.length && !areas.length) return {html:'', h:0};
   const h = 24 + 28 + Math.ceil(eq.length/4)*26 + Math.ceil(areas.length/2)*44;
   const html = `
@@ -395,7 +409,7 @@ export function pageMapeamento(pl, dims, titulo, li){
     // portão/porta/janela preso a um muro: barra alinhada com a parede por baixo do ícone
     const gm = geomNoMuro(p, pl, rect.w, rect.h);
     const marca = gm ? `<div style="position:absolute;left:${left}px;top:${top}px;width:44px;height:8px;border-radius:2px;background:${t.color};border:1.5px solid #fff;transform:translate(-50%,-50%) rotate(${gm.ang}deg);"></div>` : '';
-    const badge = t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPin(li, pi)}</span>`;
+    const badge = t.cenario ? '' : `<span style="position:absolute;top:-7px;right:-7px;background:#111;color:#fff;font-size:9px;font-weight:800;border-radius:50%;width:15px;height:15px;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;">${numeroDoPinEm(pl, pi)}</span>`;
     return `${cone}${marca}<div style="position:absolute;left:${left}px;top:${top}px;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${t.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;">${ICONS[t.id]}${badge}</div>`;
   }).join('');
   const cercaHtml = (pl.cercas||[]).map(c=>{
@@ -425,6 +439,7 @@ export function pageMapeamento(pl, dims, titulo, li){
       ${cercaHtml}
       ${pinsHtml}
       ${etiquetasHtml(pl, rect)}
+      ${pl.fonte==='mapa' && pl.imagem ? `<div style="position:absolute;left:${rect.x+rect.w}px;top:${rect.y+rect.h}px;transform:translate(-100%,-100%);margin:-4px 0 0 -4px;background:rgba(0,0,0,.55);color:#f2f2f2;font-size:10px;line-height:1.3;padding:2px 6px;border-radius:3px;white-space:nowrap;">${CREDITO_ESRI}</div>` : ''}
     </div>
     ${leg.h ? `<div style="position:absolute;left:64px;right:64px;top:${TOP+BOX_H+12}px;height:${leg.h}px;box-sizing:border-box;overflow:hidden;background:#F9FAFB;border:1px solid #E3E8EF;border-radius:8px;padding:12px 16px;">${leg.html}</div>` : ''}
     ${footerBrand()}
@@ -514,15 +529,8 @@ export function ajustarFluxo(pagina){
   return cabe();
 }
 
-export async function gerarPDF(){
-  showToast('Gerando PDF…');
-  await carregarFontesPdf();
-  await prepararLogoPdf();
-  const root = document.getElementById('pdf-render-root');
-  root.innerHTML = '';
-  const gp = pinsGlobais();
-  const equipCrops = [];
-  for(const g of gp){ equipCrops.push(await generateCropDataURL(g.p, g.pl)); }
+// Páginas de Mapeamento: uma por planta (regras multi-planta) e, depois, uma por vista aérea com imagem.
+export async function paginasMapeamento(){
   const multi = state.plantas.length > 1;
   const mapPages = [];
   for(let li=0; li<state.plantas.length; li++){
@@ -533,7 +541,27 @@ export async function gerarPDF(){
     const titulo = 'Mapeamento' + (multi ? ` — ${pl.nome||('Planta '+(li+1))}` : '');
     mapPages.push(pageMapeamento(pl, dims, titulo, li));
   }
-  if(mapPages.length===0) mapPages.push(pageMapeamento(state.plantas[0], null, 'Mapeamento', 0));
+  const vistas = [];
+  for(const v of (state.aereas||[])){
+    if(!v.imagem) continue;
+    const dims = await loadImageDims(v.imagem);
+    vistas.push(pageMapeamento(v, dims, 'Mapeamento — ' + (v.nome || 'Vista aérea'), null));
+  }
+  if(mapPages.length===0 && vistas.length===0) mapPages.push(pageMapeamento(state.plantas[0], null, 'Mapeamento', 0));
+  return [...mapPages, ...vistas];
+}
+
+export async function gerarPDF(){
+  showToast('Gerando PDF…');
+  await carregarFontesPdf();
+  await prepararLogoPdf();
+  const root = document.getElementById('pdf-render-root');
+  root.innerHTML = '';
+  limparRefsOrfas();
+  const gp = pinsGlobais();
+  const equipCrops = [];
+  for(const g of gp){ equipCrops.push(await generateCropDataURL(g.p, g.pl)); }
+  const mapPages = await paginasMapeamento();
   const pages = [
     pageCapa(), pageSumario(), pageObjetivo(), ...mapPages, pageEstrutura(),
     ...gp.map((g,i)=>pageEquipamento(g.p, g.numero, equipCrops[i], g.pl)),

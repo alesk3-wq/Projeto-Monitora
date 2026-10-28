@@ -1013,6 +1013,48 @@ try{
     state.plantas = sv.pl; state.plantaAtiva = sv.pa; state.aereas = sv.ae; state.aereaAtiva = sv.aa;
     window.renderContent();
   }
+  // ===== Vista aérea: PDF (Mapeamento das vistas) =====
+  {
+    const PDx = await import('./js/pdf.js');
+    const AEx = await import('./js/aerea.js');
+    const STx = await import('./js/state.js');
+    const sv = {pl:state.plantas, pa:state.plantaAtiva, ae:state.aereas, aa:state.aereaAtiva};
+    const cvx = document.createElement('canvas'); cvx.width = 400; cvx.height = 300; cvx.getContext('2d').fillStyle = '#6a8'; cvx.getContext('2d').fillRect(0,0,400,300);
+    const imgx = cvx.toDataURL('image/png');
+    const plA = STx.novaPlanta('A'); plA.imagem = imgx;
+    plA.pins = [{id:'pa1', tipoId:'dome', label:'D', qtd:1, x:10, y:10}, {id:'pa2', tipoId:'bullet', label:'Entrada', qtd:2, x:50, y:50, direcao:90}];
+    const vA = STx.novaAerea('Vista aérea 1'); vA.imagem = imgx; vA.fonte = 'mapa';
+    vA.escala = {a:{x:10,y:10}, b:{x:60,y:10}, metros:100, metrosLargura:200};
+    vA.pins = [AEx.novaRef('pa2', 40, 40), {id:'vs1', tipoId:'portao', label:'P', qtd:1, x:70, y:70}];
+    const vB = STx.novaAerea('Vista aérea 2'); // sem imagem
+    state.plantas = [plA]; state.plantaAtiva = 0; state.aereas = [vA, vB]; state.aereaAtiva = null;
+    STx.attachPlantaAlias(state);
+    const html = PDx.pageMapeamento(vA, {w:400,h:300}, 'Mapeamento — Vista aérea 1', null);
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const badges = [...tmp.querySelectorAll('span')].filter(s=>/^\d+$/.test(s.textContent.trim()) && s.style.borderRadius==='50%');
+    assert('pdf-vista: badge da ref tem o número do original (Bullet 1)', badges.length===1 && badges[0].textContent.trim()==='1');
+    assert('pdf-vista: cenário na vista sem badge', badges.length===1);
+    assert('pdf-vista: crédito Esri com fonte mapa', html.includes('Imagens: Esri'));
+    vA.fonte = 'upload';
+    assert('pdf-vista: sem crédito com fonte upload', !PDx.pageMapeamento(vA, {w:400,h:300}, 'M', null).includes('Imagens: Esri'));
+    delete vA.fonte;
+    assert('pdf-vista: sem crédito sem fonte', !PDx.pageMapeamento(vA, {w:400,h:300}, 'M', null).includes('Imagens: Esri'));
+    vA.fonte = 'mapa';
+    const lv = PDx.legendaVista(vA);
+    assert('pdf-vista: legenda da vista conta a ref (Bullet qtd 2) e o cenário, não a planta', lv.length===2 && lv[0].tipoId==='bullet' && lv[0].qtd===2 && lv[1].tipoId==='portao' && !lv.some(l=>l.tipoId==='dome'));
+    assert('pdf-vista: legenda renderizada "02x — Câmera Bullet"', html.includes('02x — Câmera Bullet') && !html.includes('Câmera Dome'));
+    vA.muros = [{id:'m1', label:'M1', fechado:false, pontos:[{x:0,y:0},{x:10,y:10}]}];
+    assert('pdf-vista: muros contam na legenda', PDx.legendaVista(vA).some(l=>l.tipoId==='muro' && l.qtd===1));
+    vA.muros = [];
+    const pgs = await PDx.paginasMapeamento();
+    assert('pdf-vista: páginas = 1 planta + 1 vista com imagem (vista vazia não gera)', pgs.length===2);
+    assert('pdf-vista: vista depois da planta, com título da vista', pgs[1].includes('Mapeamento — Vista aérea 1') && pgs[1].includes('Imagens: Esri') && !pgs[0].includes('Imagens: Esri'));
+    state.aereas = []; 
+    assert('pdf-vista: sem vistas, só a planta (comportamento antigo)', (await PDx.paginasMapeamento()).length===1);
+    state.plantas = sv.pl; state.plantaAtiva = sv.pa; state.aereas = sv.ae; state.aereaAtiva = sv.aa;
+    STx.attachPlantaAlias(state);
+    window.renderContent();
+  }
 }catch(err){
   out.push('ERRO :: ' + (err && err.stack || err));
 }
