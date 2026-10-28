@@ -600,6 +600,31 @@ try{
       assert('cegoDoPin: só Bullet/Dome', ES.cegoDoPin({tipoId:'ptz',altura:18})===0 && ES.cegoDoPin({tipoId:'bullet',altura:18,alcanceM:40,abEsq:25,abDir:25})>13);
       assert('pxPorMetro e fmtM', ES.pxPorMetro({escala:{metrosLargura:50}},1000)===20 && ES.pxPorMetro({},1000)===null && ES.fmtM(13.333)==='13,3 m' && ES.fmtM(20)==='20 m');
     }
+    {
+      const EST = await import('./js/tabs/escalaTool.js'), STM = await import('./js/state.js');
+      const pl0 = state.plantas[0], sv = {imagem:pl0.imagem, pins:pl0.pins, escala:pl0.escala, sel:pl0.selectedTipo, zoom:pl0.zoom}, svAtiva = state.plantaAtiva;
+      const cvE = document.createElement('canvas'); cvE.width = 2000; cvE.height = 1000;
+      pl0.imagem = cvE.toDataURL('image/png'); pl0.zoom = 100; pl0.pins = []; delete pl0.escala;
+      state.plantaAtiva = 0; window.switchTab('planta'); await waitImg();
+      const nPinsAntes = pl0.pins.length;
+      window.selectTipo('escala'); await waitImg();
+      assert('escala: botão na barra e barra própria', [...document.querySelectorAll('.toolbar-types .type-btn')].some(b=>b.textContent.includes('Escala')) && document.querySelector('.escala-bar'));
+      EST.escalaClique(10,50); EST.escalaClique(60,50); await waitImg();
+      document.getElementById('escalaMetros').value = '12,5'; EST.escalaConfirmar();
+      assert('escala: vírgula decimal, metrosLargura gravado', pl0.escala && near(pl0.escala.metrosLargura, 25, 0.01) && pl0.escala.metros===12.5);
+      await waitImg();
+      assert('escala: chip na linha do zoom e linha desenhada', document.body.textContent.includes('Escala: 12,5 m') && document.querySelector('.escala-svg') && document.querySelectorAll('.escala-ponto').length===2);
+      delete pl0.escala; EST.escalaClique(10,50); EST.escalaClique(60,50); await waitImg();
+      document.getElementById('escalaMetros').value = 'abc'; EST.escalaConfirmar();
+      assert('escala: valor inválido não grava e mantém a barra', !pl0.escala && document.getElementById('escalaMetros'));
+      EST.escalaCancelar(); EST.escalaClique(20,20); EST.escalaClique(20,20); await waitImg();
+      document.getElementById('escalaMetros').value = '10'; EST.escalaConfirmar();
+      assert('escala: pontos coincidentes não gravam', !pl0.escala);
+      assert('escala: clique com a ferramenta não cria pin', pl0.pins.length===nPinsAntes);
+      assert('limparPlanta apaga a escala e o conteúdo', STM.limparPlanta({escala:{metrosLargura:5},pins:[1],zoom:200}).escala===undefined);
+      EST.escalaCancelar();
+      pl0.imagem = sv.imagem; pl0.pins = sv.pins; if(sv.escala) pl0.escala = sv.escala; else delete pl0.escala; pl0.selectedTipo = sv.sel; pl0.zoom = sv.zoom; state.plantaAtiva = svAtiva;
+    }
     assert('título de seção quebra linha (sem nowrap) quando longo', !h1.includes('nowrap') && h1.includes('overflow-wrap:anywhere'));
     const h3 = PD2.pageEquipamento({tipoId:'bullet', label:'X', qtd:1}, 1, 'data:image/png;base64,AAAA');
     assert('ficha PDF sem fotos: sem quadros vazios, recorte ampliado e centralizado',

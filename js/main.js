@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { renderNav, renderContent, switchTab, goPrevTab, goNextTab, toggleHiddenMenu } from './nav.js';
 import { exportarProjeto, importarProjetoFile } from './persistence.js';
 import { addGroup, removeGroup, addItem, removeItem, importFromPlanta, setDescGerada, removeSecaoGerada } from './tabs/estrutura.js';
+import { escalaConfirmar, escalaCancelar, escalaRemover, escalaRefazer } from './tabs/escalaTool.js';
 import { muroDesfazer, muroConcluir, muroCancelar, removeMuro } from './tabs/muros.js';
 import { toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAbertura, removePin, selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca, selectPlanta, addPlanta, removePlanta } from './tabs/planta.js';
 import { selectAreaCat, setAreaCat, removeArea } from './tabs/areas.js';
@@ -15,6 +16,7 @@ Object.assign(window, {
   exportarProjeto, importarProjetoFile,
   addGroup, removeGroup, addItem, removeItem, importFromPlanta, setDescGerada, removeSecaoGerada,
   muroDesfazer, muroConcluir, muroCancelar, removeMuro,
+  escalaConfirmar, escalaCancelar, escalaRemover, escalaRefazer,
   toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAbertura, removePin,
   selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca,
   selectPlanta, addPlanta, removePlanta,

@@ -5,6 +5,14 @@ export function novaPlanta(nome){
   return { nome, imagem:null, selectedTipo:'bullet', pins:[], zoom:100, cercas:[], areas:[], etiquetas:[], muros:[], selectedAreaCat:'area1' };
 }
 
+// Esvazia o conteúdo de uma planta ao trocar a imagem (muros não são apagados, como sempre)
+export function limparPlanta(pl){
+  pl.pins = []; pl.cercas = []; pl.areas = []; pl.etiquetas = [];
+  pl.zoom = 100;
+  delete pl.escala;
+  return pl;
+}
+
 // Alias vivo: state.planta → planta ativa (state.plantas[state.plantaAtiva]).
 // Não-enumerável de propósito — fica fora do JSON.stringify (o export serializa
 // só 'plantas' + 'plantaAtiva'). Todo código que opera "na planta ativa"

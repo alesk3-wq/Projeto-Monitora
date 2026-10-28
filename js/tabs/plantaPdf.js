@@ -1,4 +1,4 @@
-import { state } from '../state.js';
+import { state, limparPlanta } from '../state.js';
 import { showToast } from '../utils.js';
 import { renderContent, resetRolagem } from '../nav.js';
 
@@ -35,11 +35,7 @@ async function applyPage(pdfDoc, pageNum){
     const page = await pdfDoc.getPage(pageNum);
     const url = await renderPageToDataURL(page, TARGET_MAX_DIM);
     state.planta.imagem = url;
-    state.planta.pins = [];
-    state.planta.cercas = [];
-    state.planta.areas = [];
-    state.planta.etiquetas = [];
-    state.planta.zoom = 100;
+    limparPlanta(state.planta);
     resetRolagem();
     renderContent();
     showToast('Planta importada do PDF.');

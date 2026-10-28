@@ -1,4 +1,4 @@
-import { state, novaPlanta } from '../state.js';
+import { state, novaPlanta, limparPlanta } from '../state.js';
 import { numeroDoPin } from '../numeracao.js';
 import { EQUIP_TYPES, ICONS, CATEGORIAS_INSERIR } from '../constants.js';
 import { typeById, fileToDataURL, showToast, novoId, alcanceDe, ALCANCE_MIN, ALCANCE_MAX, aberturaDe, fixarAbertura, setorPath, pontoNaDirecao, ABERTURA_MIN, ABERTURA_MAX } from '../utils.js';
@@ -7,6 +7,7 @@ import { tplAreaPalette, tplAreaRows, renderAreas, startAreaDraw, areaDragAtivo,
 import { isPdfFile, handlePlantaPdfUpload } from './plantaPdf.js';
 import { novaEtiqueta, tplEtiquetaRows, renderEtiquetas, etiquetaDragAtivo, etiquetaSuprimeClique, encaixarEtiqueta, ETQ_COR } from './etiquetas.js';
 import { tplMuroBar, tplMuroRows, renderMuros, muroClique, muroDragAtivo, cancelarTracoMuro } from './muros.js';
+import { tplEscalaBar, tplEscalaStatus, escalaClique, renderEscala, cancelarEscala } from './escalaTool.js';
 import { segmentosMuros, poligonoVisao, poligonoPath, geomNoMuro, encaixarNoMuro, ABERTURAS_MURO } from '../visao.js';
 
 export function tplPlanta(){
@@ -36,6 +37,9 @@ export function tplPlanta(){
         <button class="type-btn ${pl.selectedTipo==='etiqueta'?'active':''}" onclick="selectTipo('etiqueta')">
           <span class="icon-dot" style="background:${ETQ_COR}">🏷</span>Etiqueta
         </button>
+        <button class="type-btn ${pl.selectedTipo==='escala'?'active':''}" onclick="selectTipo('escala')">
+          <span class="icon-dot" style="background:#0B7285">📏</span>Escala
+        </button>
       </div>
       ${pl.imagem ? `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
@@ -43,6 +47,7 @@ export function tplPlanta(){
         <span id="zoomLabel" style="font-size:13px;font-weight:700;min-width:44px;text-align:center;">${pl.zoom||100}%</span>
         <button class="btn ghost small" onclick="zoomPlanta(20)">➕ Zoom</button>
         <button class="btn ghost small" onclick="resetZoom()">Resetar</button>
+        ${tplEscalaStatus()}
         <span class="hint" style="margin:0;">Dê zoom para posicionar com mais precisão; role a área para navegar.</span>
       </div>` : ''}
       ${pl.selectedTipo==='cerca' && pl.imagem ? `
@@ -55,6 +60,7 @@ export function tplPlanta(){
         <span class="hint" style="margin:0;">Toque na planta para adicionar pontos (mín. 2). Concluir com menos de 2 descarta.</span>
       </div>` : ''}
       ${pl.selectedTipo==='muro' && pl.imagem ? tplMuroBar() : ''}
+      ${pl.selectedTipo==='escala' && pl.imagem ? tplEscalaBar() : ''}
       ${pl.selectedTipo==='area' && pl.imagem ? tplAreaPalette() : ''}
       <div id="plantaScroll" class="${pl.selectedTipo==='area' ? 'modo-area' : ''}">
         ${pl.imagem
@@ -102,7 +108,7 @@ let suppressNextClick = false;
 let pinch = null;
 let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem traçado
 
-export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); }
+export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); cancelarEscala(); }
 export function selectPlanta(i){
   if(i===state.plantaAtiva) return;
   cancelarTraco();
@@ -159,6 +165,7 @@ document.addEventListener('pointerdown', e=>{
 export function selectTipo(id){
   if(state.planta.selectedTipo==='cerca' && id!=='cerca') tracoAtual = null;
   if(state.planta.selectedTipo==='muro' && id!=='muro') cancelarTracoMuro();
+  if(state.planta.selectedTipo==='escala' && id!=='escala') cancelarEscala();
   state.planta.selectedTipo = id;
   renderContent();
 }
@@ -275,6 +282,7 @@ export function afterPlantaRender(){
         return;
       }
       if(state.planta.selectedTipo==='muro'){ muroClique(x, y, rect); return; }
+      if(state.planta.selectedTipo==='escala'){ escalaClique(x, y); return; }
       if(state.planta.selectedTipo==='cerca'){
         tracoAtual = tracoAtual || [];
         tracoAtual.push({x, y});
@@ -343,6 +351,7 @@ export function afterPlantaRender(){
     });
     renderMuros(wrap, ()=>state.planta.pins.forEach((_,i)=>updatePinDOM(i)));
     renderCercas(wrap);
+    renderEscala(wrap);
     renderAreas(wrap);
     renderEtiquetas(wrap);
     if(img && !img.complete){
@@ -612,11 +621,7 @@ export async function handlePlantaUpload(e){
   const f = e.target.files[0]; if(!f) return;
   if(isPdfFile(f)){ await handlePlantaPdfUpload(f); e.target.value=''; return; }
   state.planta.imagem = await fileToDataURL(f);
-  state.planta.pins = [];
-  state.planta.cercas = [];
-  state.planta.areas = [];
-  state.planta.etiquetas = [];
-  state.planta.zoom = 100;
+  limparPlanta(state.planta);
   resetRolagem();
   renderContent();
 }
