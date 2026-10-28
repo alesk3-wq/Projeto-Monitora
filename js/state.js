@@ -50,3 +50,6 @@ export let state = {
 attachPlantaAlias(state);
 
 export function setState(novoEstado){ state = novoEstado; }
+
+// Há vista aérea selecionada no editor? (null ou undefined = planta ativa)
+export function temVistaAtiva(){ return state.aereaAtiva!==null && state.aereaAtiva!==undefined; }

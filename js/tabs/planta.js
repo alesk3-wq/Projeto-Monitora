@@ -1,4 +1,4 @@
-import { state, novaPlanta, limparPlanta } from '../state.js';
+import { state, novaPlanta, limparPlanta, temVistaAtiva } from '../state.js';
 import { numeroDoPinEm } from '../numeracao.js';
 import { limparRefsOrfas } from '../aerea.js';
 import { tplAbasVistas, tplVistaImagem, tplVistaVazia, tplEquipPlanta, tplRefRow, criarRefNoClique, temConteudoVista, FERRAMENTAS_VISTA } from './aerea.js';
@@ -23,7 +23,7 @@ export function tplPlanta(){
     <div class="card">
       <div class="planta-tabs">
         ${state.plantas.map((pt,i)=>`
-          <button class="planta-tab ${i===state.plantaAtiva && state.aereaAtiva===null?'active':''}" onclick="selectPlanta(${i})">${pt.nome||('Planta '+(i+1))}</button>`).join('')}
+          <button class="planta-tab ${i===state.plantaAtiva && !temVistaAtiva()?'active':''}" onclick="selectPlanta(${i})">${pt.nome||('Planta '+(i+1))}</button>`).join('')}
         ${tplAbasVistas()}
         <button class="planta-tab add" onclick="addPlanta()">+ Nova planta</button>
         <button class="vista-add" onclick="addAerea()">+ Vista aérea</button>
@@ -86,7 +86,7 @@ export function tplPlanta(){
             <b style="font-size:12px;color:var(--text-mid);width:18px;">${typeById(p.tipoId).cenario ? '' : numeroDoPinEm(pl, pi)}</b>
             <select onchange="state.planta.pins[${pi}].tipoId=this.value; renderContent();">
               ${CATEGORIAS_INSERIR.map(c=>{
-                const ops = c.tipos.filter(id=>(id!=='cerca' && id!=='muro') || p.tipoId===id);
+                const ops = c.tipos.filter(id=>((id!=='cerca' && id!=='muro') || p.tipoId===id) && (!pl.aerea || typeById(id).cenario)); // na vista só cenário
                 return ops.length ? `<optgroup label="${c.label}">${ops.map(id=>`<option value="${id}" ${id===p.tipoId?'selected':''}>${typeById(id).label}</option>`).join('')}</optgroup>` : '';
               }).join('')}
             </select>
@@ -119,7 +119,7 @@ let tracoAtual = null; // [{x,y},...] durante o desenho de uma cerca; null = sem
 
 export function cancelarTraco(){ tracoAtual = null; cancelarTracoMuro(); cancelarEscala(); }
 export function selectPlanta(i){
-  if(i===state.plantaAtiva && state.aereaAtiva===null) return;
+  if(i===state.plantaAtiva && !temVistaAtiva()) return;
   cancelarTraco();
   state.plantaAtiva = i;
   state.aereaAtiva = null;

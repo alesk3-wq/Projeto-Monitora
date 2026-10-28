@@ -1,5 +1,5 @@
 import { TABS } from './constants.js';
-import { state } from './state.js';
+import { state, temVistaAtiva } from './state.js';
 import { tplProjeto } from './tabs/projeto.js';
 import { tplObjetivo } from './tabs/objetivo.js';
 import { tplEstrutura } from './tabs/estrutura.js';
@@ -44,7 +44,7 @@ let pularRolagem = false;
 export function resetRolagem(){ pularRolagem = true; }
 
 // Chave do que está no editor: vista aérea ativa ('a'+índice) ou índice da planta
-const chavePlanta = ()=>state.aereaAtiva!==null && state.aereaAtiva!==undefined ? 'a'+state.aereaAtiva : state.plantaAtiva;
+const chavePlanta = ()=>temVistaAtiva() ? 'a'+state.aereaAtiva : state.plantaAtiva;
 
 export function renderContent(){
   const c = document.getElementById('content');

@@ -13,7 +13,7 @@ import { cancelarTraco, tplControlesFoco } from './planta.js';
 export const FERRAMENTAS_VISTA = ['area', 'etiqueta', 'muro', 'escala'];
 
 export function temConteudoVista(v){
-  return !!(v && ((v.pins||[]).length || (v.areas||[]).length || (v.etiquetas||[]).length || (v.cercas||[]).length));
+  return !!(v && ((v.pins||[]).length || (v.areas||[]).length || (v.etiquetas||[]).length || (v.cercas||[]).length || v.escala));
 }
 
 // ---------- mini-abas ----------

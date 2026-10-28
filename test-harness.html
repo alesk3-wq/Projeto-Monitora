@@ -863,6 +863,19 @@ try{
     assert('vista-ed: clique com nenhum não cria pin', vs.pins.length===1);
     window.selectTipo('poste'); clicar();
     assert('vista-ed: cenário entra como pin normal da vista', vs.pins.length===2 && !vs.pins[1].ref && vs.pins[1].tipoId==='poste');
+    await waitImg();
+    const selPoste = document.querySelectorAll('.pinlist .pinrow')[1]?.querySelector('select');
+    const opsPoste = selPoste ? [...selPoste.options].map(o=>o.value) : [];
+    assert('vista-ed: select do Poste na vista só com cenário (sem bullet)', opsPoste.includes('poste') && !opsPoste.includes('bullet') && opsPoste.every(id=>U4.typeById(id).cenario));
+    {
+      const TAx = await import('./js/tabs/aerea.js'), STy = await import('./js/state.js');
+      const vEsc = STy.novaAerea('E'); vEsc.escala = {a:{x:10,y:50}, b:{x:90,y:50}, metros:80, metrosLargura:100};
+      assert('vista-ed: escala conta como conteúdo da vista', TAx.temConteudoVista(vEsc) && !TAx.temConteudoVista(STy.novaAerea('F')));
+      state.aereaAtiva = undefined;
+      assert('vista-ed: aereaAtiva undefined = planta ativa (helper único)', !STy.temVistaAtiva() && state.planta===p1);
+      state.aereaAtiva = 0;
+      assert('vista-ed: temVistaAtiva com vista', STy.temVistaAtiva() && state.planta===vs);
+    }
     vs.selectedTipo = 'bullet'; clicar();
     assert('vista-ed: tipo de equipamento na vista é ignorado', vs.pins.length===2);
     window.selectRef('o0'); await waitImg(); clicar();
