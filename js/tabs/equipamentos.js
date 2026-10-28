@@ -4,8 +4,7 @@ import { ICONS } from '../constants.js';
 import { typeById, fileToDataURL, defaultCropFrac, alcanceDe, aberturaDe, ehEquipamento } from '../utils.js';
 import { renderContent } from '../nav.js';
 import { segmentosMuros, poligonoVisao } from '../visao.js';
-import { infoFocoHtml } from '../pdf.js';
-import { temEscala, alcanceMDe, cegoDoPin, COR_CEGO } from '../escala.js';
+import { infoFocoHtml, temEscala, alcanceMDe, cegoDoPin, COR_CEGO } from '../escala.js';
 
 export function tplEquipamentos(){
   const multi = state.plantas.length > 1;
@@ -27,10 +26,10 @@ export function tplEquipamentos(){
             <label>Localização na planta (automática)</label>
             <img id="cropPreview-${li}-${pi}" style="width:100%;height:150px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;">
             <label style="margin-top:8px;">Zoom do recorte</label>
-            ${infoFocoHtml(p, pl)}
             <input id="cropSlider-${li}-${pi}" type="range" min="10" max="60" step="1"
               value="${Math.round((p.cropFrac||0.28)*100)}"
               onchange="setCropFrac(${li}, ${pi}, this.value)" style="width:100%;">
+            ${infoFocoHtml(p, pl)}
           </div>
           <div>
             <label>Foto do local de instalação</label>

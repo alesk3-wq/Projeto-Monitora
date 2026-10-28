@@ -642,6 +642,10 @@ try{
       assert('escala: PTZ com raio fixo de 30 m', near(parseFloat(document.getElementById('cone-1').getAttribute('width')), 2*30*W1/40+4, 1));
       assert('ponto cego desenhado (path .cego com d)', (document.querySelector('#cone-0 path.cego')?.getAttribute('d')||'').length>5);
       assert('rótulo altura · alcance ao lado da câmera', (document.getElementById('hlabel-0')?.textContent||'').includes('18 m') && document.getElementById('hlabel-0').textContent.includes('20 m') && !document.getElementById('hlabel-1'));
+      { const sv2 = pl0.pins[0].alcanceM; pl0.pins[0].alcanceM = 150; window.renderContent(); await waitImg(); await frame();
+        const sc2 = document.getElementById('plantaScroll'), wr2 = document.getElementById('plantaWrap');
+        assert('foco de 150 m não estica a área de rolagem', sc2.scrollWidth <= wr2.offsetWidth + 2 && !!document.querySelector('#focoLayer #cone-0'));
+        pl0.pins[0].alcanceM = sv2; window.renderContent(); await waitImg(); }
       window.zoomPlanta(100); await waitImg(); await frame();
       const W2 = document.getElementById('plantaImg').clientWidth;
       assert('escala: foco cresce com o zoom', near(Lcone(), 2*20*W2/40+4, 1) && W2 > W1*1.5);
@@ -654,6 +658,11 @@ try{
       pl0.imagem = sv.imagem; pl0.pins = sv.pins; if(sv.escala) pl0.escala = sv.escala; else delete pl0.escala; pl0.muros = sv.muros; pl0.selectedTipo = sv.sel; pl0.zoom = sv.zoom; state.plantaAtiva = svAtiva;
     }
     {
+      const {lerMetros: lm} = await import('./js/tabs/escalaTool.js');
+      assert('lerMetros aceita formatos pt-BR', lm('12')===12 && lm('12,5')===12.5 && lm('12.5')===12.5 && lm('1.000')===1000 && lm('1.000,5')===1000.5 && lm('1000,5')===1000.5);
+      assert('lerMetros rejeita lixo', lm('12abc')===null && lm('')===null && lm('Infinity')===null && lm('-3')===null && lm('0')===null);
+    }
+    {
       const U3 = await import('./js/utils.js');
       const tb = U3.typeById('bullet');
       const pB = {tipoId:'bullet', direcao:90, alcanceM:40, altura:18, abEsq:25, abDir:25};
@@ -662,6 +671,8 @@ try{
       const comEsc = PD2.coneMapeamento(pB, tb, 500, 400, [], 10);
       assert('PDF com escala: alcance em px reais + ponto cego', comEsc.includes('data-cone="400.0|') && /data-cego="13\.\d"/.test(comEsc));
       assert('PDF: foco gigante limitado (canvas não estoura)', PD2.coneMapeamento({...pB, alcanceM:150}, tb, 500, 400, [], 50).includes('data-cone="1500.0|'));
+      assert('PDF: canvas do foco recortado pela caixa, lados <= 4096', (()=>{ const s = PD2.coneMapeamento({...pB, alcanceM:150}, tb, 500, 400, [], 50, {w:1286,h:785}); const m = s.match(/data-cv="([0-9]+)x([0-9]+)"/); return !!m && +m[1]<=4096 && +m[2]<=4096 && +m[1]>0 && s.includes('data-cone="1500.0|') && s.includes('data-cego'); })());
+      assert('PDF: sem escala o foco continua igual (sem recorte)', !PD2.coneMapeamento(pB, tb, 500, 400, [], null, {w:1286,h:785}).includes('data-cv') && PD2.coneMapeamento(pB, tb, 500, 400, []) === PD2.coneMapeamento(pB, tb, 500, 400, [], null, {w:1286,h:785}));
       assert('PDF: PTZ com escala = 30 m, sem ponto cego', (()=>{ const s = PD2.coneMapeamento({tipoId:'ptz'}, U3.typeById('ptz'), 500, 400, [], 10); return s.includes('data-cone="300.0|') && !s.includes('data-cego'); })());
       assert('ficha: linha de altura/alcance/ponto cego só com escala', PD2.infoFocoHtml(pB, {escala:{metrosLargura:50}}).includes('Ponto cego: 13,3 m') && PD2.infoFocoHtml(pB, {})==='' && PD2.infoFocoHtml({tipoId:'ptz'}, {escala:{metrosLargura:50}})==='');
       const mkPl = (esc)=>({nome:'X', imagem:null, pins:[{id:'q1',tipoId:'bullet',label:'B',qtd:1,x:30,y:50,direcao:90,alcanceM:20,altura:18,abEsq:25,abDir:25}], cercas:[], areas:[], etiquetas:[], muros:[], ...(esc?{escala:{metrosLargura:50}}:{})});

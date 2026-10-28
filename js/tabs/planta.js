@@ -302,6 +302,12 @@ export function afterPlantaRender(){
     };
   }
   if(wrap){
+    // camada dos focos: cobre exatamente a imagem e corta o que passa dela (foco em metros pode ser enorme)
+    wrap.querySelector('#focoLayer')?.remove();
+    const focoLayer = document.createElement('div');
+    focoLayer.id = 'focoLayer';
+    focoLayer.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;pointer-events:none;z-index:1;';
+    wrap.appendChild(focoLayer);
     state.planta.pins.forEach((p,pi)=>{
       const t = typeById(p.tipoId);
       if(t.cameraLike && t.foco360){
@@ -310,7 +316,7 @@ export function afterPlantaRender(){
         circ.id = 'cone-'+pi;
         circ.innerHTML = `<path fill="${t.color}40" stroke="${t.color}88" stroke-width="1.5"/>`;
         circ.style.cssText = 'position:absolute;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;z-index:1;';
-        wrap.appendChild(circ);
+        focoLayer.appendChild(circ);
         posicionarFoco(pi);
       } else if(t.cameraLike){
         // Foco em setor com a ponta em arco (SVG em px, posição em % — acompanha o zoom)
@@ -318,7 +324,7 @@ export function afterPlantaRender(){
         cone.id = 'cone-'+pi;
         cone.innerHTML = `<path fill="${t.color}55" stroke="${t.color}" stroke-opacity="0.85" stroke-width="1.5"/><path class="cego" fill="${COR_CEGO}55" stroke="${COR_CEGO}" stroke-width="1"/>`;
         cone.style.cssText = 'position:absolute;transform:translate(-50%,-50%);overflow:visible;pointer-events:none;z-index:1;';
-        wrap.appendChild(cone);
+        focoLayer.appendChild(cone);
 
         const handle = document.createElement('div');
         handle.id = 'rothandle-'+pi;
@@ -564,8 +570,13 @@ function posicionarFoco(pi){
   const coloca = (el, r, deg)=>{
     if(!el) return;
     const q = pontoNaDirecao(0, 0, r, deg);
-    el.style.left = `calc(${pin.x}% + ${q.x}px)`;
-    el.style.top = `calc(${pin.y}% + ${q.y}px)`;
+    // com foco em metros a ponta pode cair fora da imagem: mantém a alça visível dentro dela
+    const im = document.getElementById('plantaImg'), W = im?.clientWidth||0, H = im?.clientHeight||0;
+    const px = pin.x/100*W, py = pin.y/100*H;
+    const cx = W>28 ? Math.min(W-14, Math.max(14, px+q.x)) : px+q.x;
+    const cy = H>28 ? Math.min(H-14, Math.max(14, py+q.y)) : py+q.y;
+    el.style.left = `calc(${pin.x}% + ${cx-px}px)`;
+    el.style.top = `calc(${pin.y}% + ${cy-py}px)`;
   };
   // ponto da ponta no meio do arco, mas nunca colado no ícone (fica pegável no alcance mínimo)
   coloca(document.getElementById('rothandle-'+pi), Math.max(L+3, 44), dir + (ab.dir - ab.esq)/2);
@@ -652,7 +663,7 @@ export function liveUpdateAlcance(pi, pct){
 }
 // Alcance em metros + altura + ponto cego (Bullet/Dome numa planta com escala)
 function tplAlcanceMetros(p, pi){
-  return `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_M_MIN}" max="${ALCANCE_M_MAX}" step="0.5" value="${alcanceMDe(p)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcanceM(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:44px;">${fmtM(alcanceMDe(p))}</span><span style="font-size:11px;color:var(--text-mid);">Altura (m)</span><input type="number" id="altura-${pi}" min="${ALTURA_MIN}" max="${ALTURA_MAX}" step="0.5" value="${alturaDe(p)}" style="width:60px" oninput="liveUpdateAltura(${pi}, this.value)"><span id="cego-${pi}" style="font-size:11px;color:var(--text-mid);">Ponto cego: ${fmtM(cegoDoPin(p))}</span>`;
+  return `<span style="font-size:11px;color:var(--text-mid);">Alcance</span><input id="alcslider-${pi}" type="range" min="${ALCANCE_M_MIN}" max="${ALCANCE_M_MAX}" step="0.5" value="${alcanceMDe(p)}" style="width:80px;margin-bottom:0;" oninput="liveUpdateAlcanceM(${pi}, this.value)"><span id="alclabel-${pi}" style="font-size:11px;color:var(--text-mid);width:44px;">${fmtM(alcanceMDe(p))}</span><span style="font-size:11px;color:var(--text-mid);">Altura (m)</span><input type="number" id="altura-${pi}" min="${ALTURA_MIN}" max="${ALTURA_MAX}" step="0.5" value="${alturaDe(p)}" style="width:60px" oninput="liveUpdateAltura(${pi}, this.value)" onchange="syncAlturaCampo(${pi})"><span id="cego-${pi}" style="font-size:11px;color:var(--text-mid);">Ponto cego: ${fmtM(cegoDoPin(p))}</span>`;
 }
 export function liveUpdateAlcanceM(pi, m){
   const pin = state.planta.pins[pi];
@@ -670,6 +681,11 @@ export function liveUpdateAltura(pi, m){
   if(!pin || !Number.isFinite(v)) return;
   pin.altura = Math.min(ALTURA_MAX, Math.max(ALTURA_MIN, v));
   updatePinDOM(pi);
+}
+// ao sair do campo, grava de volta o valor limitado
+export function syncAlturaCampo(pi){
+  const pin = state.planta.pins[pi], el = document.getElementById('altura-'+pi);
+  if(pin && el) el.value = alturaDe(pin);
 }
 // Sliders de abertura (lado esquerdo / direito) na linha do pin — Bullet/Dome
 function tplAberturaControles(p, pi){

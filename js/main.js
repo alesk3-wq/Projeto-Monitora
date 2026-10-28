@@ -4,7 +4,7 @@ import { exportarProjeto, importarProjetoFile } from './persistence.js';
 import { addGroup, removeGroup, addItem, removeItem, importFromPlanta, setDescGerada, removeSecaoGerada } from './tabs/estrutura.js';
 import { escalaConfirmar, escalaCancelar, escalaRemover, escalaRefazer } from './tabs/escalaTool.js';
 import { muroDesfazer, muroConcluir, muroCancelar, removeMuro } from './tabs/muros.js';
-import { toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAlcanceM, liveUpdateAltura, liveUpdateAbertura, removePin, selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca, selectPlanta, addPlanta, removePlanta } from './tabs/planta.js';
+import { toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAlcanceM, liveUpdateAltura, syncAlturaCampo, liveUpdateAbertura, removePin, selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca, selectPlanta, addPlanta, removePlanta } from './tabs/planta.js';
 import { selectAreaCat, setAreaCat, removeArea } from './tabs/areas.js';
 import { setEtiquetaTexto, removeEtiqueta } from './tabs/etiquetas.js';
 import { handleEquipPhoto, setCropFrac } from './tabs/equipamentos.js';
@@ -17,7 +17,7 @@ Object.assign(window, {
   addGroup, removeGroup, addItem, removeItem, importFromPlanta, setDescGerada, removeSecaoGerada,
   muroDesfazer, muroConcluir, muroCancelar, removeMuro,
   escalaConfirmar, escalaCancelar, escalaRemover, escalaRefazer,
-  toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAlcanceM, liveUpdateAltura, liveUpdateAbertura, removePin,
+  toggleMenuInserir, handlePlantaUpload, zoomPlanta, resetZoom, liveUpdateCone, liveUpdateAlcance, liveUpdateAlcanceM, liveUpdateAltura, syncAlturaCampo, liveUpdateAbertura, removePin,
   selectTipo, cercaDesfazer, cercaConcluir, cercaCancelar, removeCerca,
   selectPlanta, addPlanta, removePlanta,
   selectAreaCat, setAreaCat, removeArea,

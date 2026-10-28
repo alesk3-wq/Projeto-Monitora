@@ -8,7 +8,7 @@ import { segmentosMuros, poligonoVisao, geomNoMuro } from './visao.js';
 import { gruposGerados, secaoGerada } from './tabs/estrutura.js';
 import { exportarProjeto } from './persistence.js';
 import { validarProposta } from './validacao.js';
-import { pxPorMetro, temEscala, alcanceMDe, alturaDe, cegoDoPin, fmtM, COR_CEGO } from './escala.js';
+import { pxPorMetro, temEscala, alcanceMDe, alturaDe, cegoDoPin, fmtM, COR_CEGO, infoFocoHtml } from './escala.js';
 
 function loadImageDims(src){
   return new Promise((resolve)=>{
@@ -318,22 +318,33 @@ function legendaMapeamento(pl, li){
 // vem do pin. segs = muros em px da página: cortam o foco (polígono de visão de js/visao.js).
 export const CONE_PDF_L0 = 72, PTZ_PDF_R = 60;
 export const PDF_L_MAX = 1500;
-export function coneMapeamento(p, t, left, top, segs=[], ppm=null){
+export const PDF_CANVAS_MAX = 4096; // lado máximo do canvas do foco (iOS Safari recusa canvas > ~16,7 Mpx)
+// box = {w,h} da caixa da planta: com escala (ppm) o canvas é recortado pela interseção com a caixa
+export function coneMapeamento(p, t, left, top, segs=[], ppm=null, box=null){
   const L = ppm ? Math.min(alcanceMDe(p)*ppm, PDF_L_MAX) : (t.foco360 ? PTZ_PDF_R : CONE_PDF_L0*alcanceDe(p)), ab = aberturaDe(p);
-  const S = Math.ceil(2*L + 4), c = S/2, K = 2; // K: canvas em 2x para ficar nítido no PDF
+  const S = Math.ceil(2*L + 4), c = S/2;
+  // retângulo do canvas em coordenadas da caixa (x0,y0,cw,ch); sem recorte = quadrado S centrado no pin
+  let x0 = left-c, y0 = top-c, cw = S, ch = S, K = 2; // K: canvas em 2x para ficar nítido no PDF
+  const recorta = !!(ppm && box);
+  if(recorta){
+    x0 = Math.floor(Math.max(0, left-L-2)); y0 = Math.floor(Math.max(0, top-L-2));
+    cw = Math.max(1, Math.ceil(Math.min(box.w, left+L+2)) - x0); ch = Math.max(1, Math.ceil(Math.min(box.h, top+L+2)) - y0);
+    K = Math.min(2, PDF_CANVAS_MAX/Math.max(cw, ch));
+  }
+  const ox = left-x0, oy = top-y0; // pin dentro do canvas
   const cv = document.createElement('canvas');
-  cv.width = cv.height = S*K;
+  cv.width = Math.max(1, Math.round(cw*K)); cv.height = Math.max(1, Math.round(ch*K));
   const ctx = cv.getContext('2d');
   ctx.scale(K, K);
   const dir = p.direcao||0;
   const poly = segs.length ? (t.foco360 ? poligonoVisao(left, top, L, 0, 360, segs, true) : poligonoVisao(left, top, L, dir-ab.esq, dir+ab.dir, segs)) : null;
   ctx.beginPath();
   if(poly){
-    poly.forEach((q,i)=>{ const x = q.x-left+c, y = q.y-top+c; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    poly.forEach((q,i)=>{ const x = q.x-left+ox, y = q.y-top+oy; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
   } else if(t.foco360){
-    ctx.arc(c, c, L, 0, Math.PI*2);
+    ctx.arc(ox, oy, L, 0, Math.PI*2);
   } else {
-    ctx.moveTo(c, c); ctx.arc(c, c, L, (dir - ab.esq - 90)*Math.PI/180, (dir + ab.dir - 90)*Math.PI/180);
+    ctx.moveTo(ox, oy); ctx.arc(ox, oy, L, (dir - ab.esq - 90)*Math.PI/180, (dir + ab.dir - 90)*Math.PI/180);
   }
   ctx.closePath();
   ctx.fillStyle = t.color + (t.foco360 ? '40' : '66'); ctx.fill();
@@ -344,13 +355,13 @@ export function coneMapeamento(p, t, left, top, segs=[], ppm=null){
     const R = Math.min(cm*ppm, L);
     const pc = segs.length ? poligonoVisao(left, top, R, dir-ab.esq, dir+ab.dir, segs) : null;
     ctx.beginPath();
-    if(pc) pc.forEach((q,i)=>{ const x = q.x-left+c, y = q.y-top+c; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-    else { ctx.moveTo(c, c); ctx.arc(c, c, R, (dir - ab.esq - 90)*Math.PI/180, (dir + ab.dir - 90)*Math.PI/180); }
+    if(pc) pc.forEach((q,i)=>{ const x = q.x-left+ox, y = q.y-top+oy; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    else { ctx.moveTo(ox, oy); ctx.arc(ox, oy, R, (dir - ab.esq - 90)*Math.PI/180, (dir + ab.dir - 90)*Math.PI/180); }
     ctx.closePath();
     ctx.fillStyle = COR_CEGO + '55'; ctx.fill();
     ctx.lineWidth = 1; ctx.strokeStyle = COR_CEGO; ctx.stroke();
   }
-  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}${poly?'|cortado':''}"${cm>0?` data-cego="${cm.toFixed(1)}"`:''} style="position:absolute;left:${left-c}px;top:${top-c}px;width:${S}px;height:${S}px;">`;
+  return `<img src="${cv.toDataURL('image/png')}" data-cone="${L.toFixed(1)}|${ab.esq.toFixed(1)}|${ab.dir.toFixed(1)}${poly?'|cortado':''}"${cm>0?` data-cego="${cm.toFixed(1)}"`:''}${recorta?` data-cv="${cv.width}x${cv.height}"`:''} style="position:absolute;left:${x0}px;top:${y0}px;width:${cw}px;height:${ch}px;">`;
 }
 // Muros da planta num canvas do tamanho da imagem (rect), emitido como <img> por cima das áreas
 export function murosImg(pl, rect){
@@ -380,7 +391,7 @@ export function pageMapeamento(pl, dims, titulo, li){
     const t = typeById(p.tipoId);
     const left = rect.x + (p.x/100)*rect.w;
     const top = rect.y + (p.y/100)*rect.h;
-    const cone = t.cameraLike ? coneMapeamento(p, t, left, top, segs, ppm) : '';
+    const cone = t.cameraLike ? coneMapeamento(p, t, left, top, segs, ppm, {w:BOX_W, h:BOX_H}) : '';
     // portão/porta/janela preso a um muro: barra alinhada com a parede por baixo do ícone
     const gm = geomNoMuro(p, pl, rect.w, rect.h);
     const marca = gm ? `<div style="position:absolute;left:${left}px;top:${top}px;width:44px;height:8px;border-radius:2px;background:${t.color};border:1.5px solid #fff;transform:translate(-50%,-50%) rotate(${gm.ang}deg);"></div>` : '';
@@ -427,11 +438,7 @@ export function legendaFicha(pin){
   if(!l) return '';
   return `<div style="margin-top:10px;font-size:15px;line-height:1.5;color:#33415A;${TEXTO_JUST}"><b style="color:${BRAND.cor};">${escHtml(l.texto)}</b>${l.desc ? '<br>'+escHtml(l.desc) : ''}</div>`;
 }
-// Linha Altura / Alcance / Ponto cego da ficha (Bullet/Dome numa planta com escala)
-export function infoFocoHtml(pin, pl){
-  if(!temEscala(pl) || !typeById(pin.tipoId).ajustaAlcance) return '';
-  return `<div style="margin-top:6px;font-size:15px;line-height:1.5;color:#33415A;">Altura: ${fmtM(alturaDe(pin))} · Alcance: ${fmtM(alcanceMDe(pin))} · Ponto cego: ${fmtM(cegoDoPin(pin))}</div>`;
-}
+export { infoFocoHtml };
 export function pageEquipamento(pin, numero, cropUrl, pl=null){
   const t = typeById(pin.tipoId);
   const boxStyle = 'width:100%;height:290px;object-fit:cover;border-radius:8px;border:1px solid #E3E8EF;background:#F4F6F9;';

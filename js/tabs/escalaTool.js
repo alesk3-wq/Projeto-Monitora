@@ -6,6 +6,16 @@ import { metrosLarguraDe, temEscala, fmtM } from '../escala.js';
 // Ferramenta "📏 Escala" da aba Planta: o usuário marca 2 pontos na planta e informa a distância real entre
 // eles; grava planta.escala = {a, b, metros, metrosLargura}. planta.js delega para cá.
 
+// Número em pt-BR: "12", "12,5", "12.5", "1.000", "1.000,5"; rejeita lixo, zero e negativos
+export function lerMetros(str){
+  let s = String(str ?? '').trim();
+  if(s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  if(!/^\d+(\.\d+)?$/.test(s)) return null;
+  const v = Number(s);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
 export const ESCALA_COR = '#0B7285';
 
 let marcacao = null; // [{x,y},...] (0–2 pontos) durante a marcação; null = sem marcação em andamento
@@ -29,7 +39,7 @@ export function tplEscalaBar(){
     const n = marcacao ? marcacao.length : 0;
     corpo = `<b>${n===0 ? 'Marque o 1º ponto' : 'Marque o 2º ponto'}</b>
       <span class="hint" style="margin:0;">Toque em dois pontos da planta cuja distância real você conhece (ex.: um muro, uma porta).</span>
-      ${n ? `<button class="btn danger small" onclick="escalaCancelar()">✕ Cancelar</button>` : ''}`;
+      ${marcacao ? `<button class="btn danger small" onclick="escalaCancelar()">✕ Cancelar</button>` : ''}`;
   }
   return `<div class="cerca-bar escala-bar">${corpo}</div>`;
 }
@@ -50,8 +60,8 @@ export function escalaConfirmar(){
   const pl = state.planta;
   const img = document.getElementById('plantaImg');
   if(!marcacao || marcacao.length<2 || !img) return;
-  const metros = parseFloat(String(document.getElementById('escalaMetros')?.value||'').trim().replace(',', '.'));
-  if(!(metros > 0)){ showToast('Digite a distância em metros.'); return; }
+  const metros = lerMetros(document.getElementById('escalaMetros')?.value);
+  if(metros === null){ showToast('Digite a distância em metros.'); return; }
   const [a, b] = marcacao;
   const metrosLargura = metrosLarguraDe(a, b, metros, img.naturalWidth, img.naturalHeight);
   if(metrosLargura === null){

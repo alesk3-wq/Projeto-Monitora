@@ -58,3 +58,9 @@ export function cegoDoPin(pin){
 export function fmtM(v){
   return (Math.round(v*10)/10).toString().replace('.', ',') + ' m';
 }
+
+// Linha Altura / Alcance / Ponto cego da ficha (Bullet/Dome numa planta com escala)
+export function infoFocoHtml(pin, pl){
+  if(!temEscala(pl) || !typeById(pin.tipoId).ajustaAlcance) return '';
+  return `<div style="margin-top:6px;font-size:15px;line-height:1.5;color:#33415A;">Altura: ${fmtM(alturaDe(pin))} · Alcance: ${fmtM(alcanceMDe(pin))} · Ponto cego: ${fmtM(cegoDoPin(pin))}</div>`;
+}
